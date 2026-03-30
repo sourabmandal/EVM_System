@@ -88,8 +88,8 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
 
-    # Step 1 — Upload
-    st.markdown("### Step 1 — Upload Input Files")
+    # Step 1 - Upload
+    st.markdown("### Step 1 - Upload Input Files")
     col1, col2 = st.columns(2)
 
     with col1:
@@ -119,7 +119,7 @@ with tab1:
         st.success(f"✅ EVM details file uploaded: **{evm_file.name}**")
 
     # Step 2 — Randomize
-    st.markdown("### Step 2 — Run Randomization")
+    st.markdown("### Step 2 - Run Randomization")
 
     if st.button("⚙️  Run Phase 1 Randomization", key="run_p1",
                  disabled=not (ps_file and evm_file)):
@@ -172,7 +172,7 @@ with tab1:
         st.dataframe(dist_df, use_container_width=True, hide_index=True)
 
     # Step 3 — Download
-    st.markdown("### Step 3 — Download Result")
+    st.markdown("### Step 3 - Download Result")
 
     if st.session_state.get("p1_done"):
         result_df = st.session_state["p1_result"]
@@ -205,7 +205,7 @@ with tab2:
     """, unsafe_allow_html=True)
 
     # Step 1 — Upload
-    st.markdown("### Step 1 — Upload Input Files")
+    st.markdown("### Step 1 - Upload Input Files")
     col3, col4 = st.columns(2)
 
     with col3:
@@ -234,7 +234,7 @@ with tab2:
         st.success(f"✅ Polling station file uploaded: **{ps2_file.name}**")
 
     # Step 2 — Randomize
-    st.markdown("### Step 2 — Run Randomization")
+    st.markdown("### Step 2 - Run Randomization")
 
     if st.button("⚙️  Run Phase 2 Randomization", key="run_p2",
                  disabled=not (p1_out_file and ps2_file)):
@@ -270,13 +270,13 @@ with tab2:
         result2_df = st.session_state["p2_result"]
         summary2   = st.session_state["p2_summary"]
         st.success(
-            f"✅ Phase 2 complete — "
+            f"✅ Phase 2 complete - "
             f"**{summary2['total_evms']} EVMs** assigned to polling stations"
         )
         st.dataframe(result2_df.head(10), use_container_width=True, hide_index=True)
 
     # Step 3 — Download
-    st.markdown("### Step 3 — Download Result")
+    st.markdown("### Step 3 - Download Result")
 
     if st.session_state.get("p2_done"):
         result2_df  = st.session_state["p2_result"]
