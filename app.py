@@ -269,12 +269,22 @@ with tab2:
                 f"**{summary2['total_reserved']} EVMs** in reserve"
             )
 
+            # Reserve distribution table
+            if not reserved_df.empty:
+                st.markdown("**Reserved EVMs - Constituency Wise:**")
+                reserve_dist = (
+                    reserved_df.groupby(["Constituency Name", "RO/ARO's Office"])
+                    .size()
+                    .reset_index(name="Reserved EVMs")
+                )
+                st.dataframe(reserve_dist, use_container_width=True, hide_index=True)
+            
             # Preview assigned
-            st.markdown("**Assigned EVMs — Preview (first 10 rows):**")
+            st.markdown("**Assigned EVMs - Preview (first 10 rows):**")
             st.dataframe(assigned_df.head(10), use_container_width=True, hide_index=True)
 
             # Preview reserved
-            st.markdown("**Reserved EVMs — Preview (first 10 rows):**")
+            st.markdown("**Reserved EVMs - Preview (first 10 rows):**")
             st.dataframe(reserved_df.head(10), use_container_width=True, hide_index=True)
 
         except Exception as e:
@@ -288,11 +298,21 @@ with tab2:
         reserved_df = st.session_state["p2_reserved"]
         summary2    = st.session_state["p2_summary"]
         st.success(
-            f"✅ Phase 2 complete — "
+            f"✅ Phase 2 complete - "
             f"**{summary2['total_assigned']} EVMs** assigned | "
             f"**{summary2['total_reserved']} EVMs** in reserve"
         )
-        st.markdown("**Assigned EVMs — Preview (first 10 rows):**")
+        # Reserve distribution table
+        if not reserved_df.empty:
+            st.markdown("**Reserved EVMs — Constituency Wise:**")
+            reserve_dist = (
+                reserved_df.groupby(["Constituency Name", "RO/ARO's Office"])
+                .size()
+                .reset_index(name="Reserved EVMs")
+            )
+            st.dataframe(reserve_dist, use_container_width=True, hide_index=True)
+            
+        st.markdown("**Assigned EVMs - Preview (first 10 rows):**")
         st.dataframe(assigned_df.head(10), use_container_width=True, hide_index=True)
         st.markdown("**Reserved EVMs - Preview (first 10 rows):**")
         st.dataframe(reserved_df.head(10), use_container_width=True, hide_index=True)
