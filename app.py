@@ -264,7 +264,7 @@ with tab2:
                 st.warning(f"⚠️ {w}")
 
             st.success(
-                f"✅ Phase 2 complete — "
+                f"✅ Phase 2 complete. "
                 f"**{summary2['total_assigned']} EVMs** assigned to polling stations | "
                 f"**{summary2['total_reserved']} EVMs** in reserve"
             )
@@ -294,7 +294,7 @@ with tab2:
         )
         st.markdown("**Assigned EVMs — Preview (first 10 rows):**")
         st.dataframe(assigned_df.head(10), use_container_width=True, hide_index=True)
-        st.markdown("**Reserved EVMs — Preview (first 10 rows):**")
+        st.markdown("**Reserved EVMs - Preview (first 10 rows):**")
         st.dataframe(reserved_df.head(10), use_container_width=True, hide_index=True)
 
     # Step 3 — Download
