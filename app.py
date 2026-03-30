@@ -149,6 +149,10 @@ with tab1:
                 columns=["Constituency Name", "EVMs Assigned"]
             )
             st.dataframe(dist_df, use_container_width=True, hide_index=True)
+            
+            # Preview table
+            st.markdown("**Preview (first 10 rows):**")
+            st.dataframe(result_df.head(10), use_container_width=True, hide_index=True)
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
@@ -170,6 +174,9 @@ with tab1:
             columns=["Constituency Name", "EVMs Assigned"]
         )
         st.dataframe(dist_df, use_container_width=True, hide_index=True)
+        # Preview table
+            st.markdown("**Preview (first 10 rows):**")
+            st.dataframe(result_df.head(10), use_container_width=True, hide_index=True)
 
     # Step 3 — Download
     st.markdown("### Step 3 - Download Result")
