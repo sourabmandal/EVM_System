@@ -259,7 +259,7 @@ with tab2:
                 st.warning(f"⚠️ {w}")
 
             st.success(
-                f"✅ Phase 2 complete — "
+                f"✅ Phase 2 complete - "
                 f"**{summary2['total_evms']} EVMs** assigned to polling stations"
             )
 
