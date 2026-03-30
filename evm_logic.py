@@ -103,7 +103,7 @@ def phase1_randomization(polling_df: pd.DataFrame, evm_df: pd.DataFrame):
 
 def phase2_randomization(phase1_df: pd.DataFrame, polling_df: pd.DataFrame):
     """
-    Returns (result_df, summary_dict, warnings_list)
+    Returns (assigned_df, reserved_df, summary_dict, warnings_list)
     """
     warnings = []
 
@@ -118,39 +118,42 @@ def phase2_randomization(phase1_df: pd.DataFrame, polling_df: pd.DataFrame):
     if missing_ps:
         raise ValueError(f"Polling station file is missing columns: {missing_ps}")
 
-    all_records = []
+    assigned_records = []
+    reserved_records = []
 
     for constituency, evm_group in phase1_df.groupby("Constituency Name"):
         ps_group = polling_df[polling_df["Constituency Name"] == constituency].copy()
 
         if ps_group.empty:
             warnings.append(f"No polling stations found for '{constituency}'. "
-                            "Polling station fields left blank.")
+                            "All EVMs moved to reserve.")
             for _, evm_row in evm_group.iterrows():
-                all_records.append({
-                    "EVMSlNo":              evm_row["EVMSlNo"],
-                    "EVMCode":              evm_row["EVMCode"],
-                    "RO/ARO's Office":      evm_row["RO/ARO's Office"],
-                    "Constituency Name":    evm_row["Constituency Name"],
-                    "Polling Station No.":  "",
-                    "Polling Station Name": "",
+                reserved_records.append({
+                    "EVMSlNo":           evm_row["EVMSlNo"],
+                    "EVMCode":           evm_row["EVMCode"],
+                    "RO/ARO's Office":   evm_row["RO/ARO's Office"],
+                    "Constituency Name": evm_row["Constituency Name"],
                 })
             continue
 
-        ps_shuffled = ps_group.sample(frac=1).reset_index(drop=True)
-        evm_list    = evm_group.reset_index(drop=True)
-        num_ps      = len(ps_shuffled)
-        num_evms    = len(evm_list)
+        # Shuffle both EVMs and polling stations randomly
+        evm_shuffled = evm_group.sample(frac=1).reset_index(drop=True)
+        ps_shuffled  = ps_group.sample(frac=1).reset_index(drop=True)
 
-        if num_evms > num_ps:
+        num_ps   = len(ps_shuffled)
+        num_evms = len(evm_shuffled)
+
+        if num_evms < num_ps:
             warnings.append(
-                f"'{constituency}': {num_evms} EVMs but only {num_ps} polling stations. "
-                "Some stations assigned to multiple EVMs."
+                f"'{constituency}': Only {num_evms} EVMs for {num_ps} polling stations. "
+                "Some polling stations will have no EVM assigned."
             )
 
-        for i, evm_row in evm_list.iterrows():
-            ps_row = ps_shuffled.iloc[i % num_ps]
-            all_records.append({
+        # Assign one EVM per polling station
+        for i in range(min(num_ps, num_evms)):
+            evm_row = evm_shuffled.iloc[i]
+            ps_row  = ps_shuffled.iloc[i]
+            assigned_records.append({
                 "EVMSlNo":              evm_row["EVMSlNo"],
                 "EVMCode":              evm_row["EVMCode"],
                 "RO/ARO's Office":      evm_row["RO/ARO's Office"],
@@ -159,10 +162,24 @@ def phase2_randomization(phase1_df: pd.DataFrame, polling_df: pd.DataFrame):
                 "Polling Station Name": ps_row["Polling Station Name"],
             })
 
-    result_df = pd.DataFrame(all_records)
+        # Remaining EVMs go to reserve
+        for i in range(num_ps, num_evms):
+            evm_row = evm_shuffled.iloc[i]
+            reserved_records.append({
+                "EVMSlNo":           evm_row["EVMSlNo"],
+                "EVMCode":           evm_row["EVMCode"],
+                "RO/ARO's Office":   evm_row["RO/ARO's Office"],
+                "Constituency Name": evm_row["Constituency Name"],
+            })
+
+    assigned_df = pd.DataFrame(assigned_records)
+    reserved_df = pd.DataFrame(reserved_records)
+
     summary = {
-        "total_evms":    len(result_df),
-        "distribution":  result_df.groupby("Constituency Name")[["Constituency Name"]].size().to_dict(),
+        "total_assigned": len(assigned_df),
+        "total_reserved": len(reserved_df),
+        "distribution":   assigned_df.groupby("Constituency Name").size().to_dict()
+                          if not assigned_df.empty else {},
     }
 
-    return result_df, summary, warnings
+    return assigned_df, reserved_df, summary, warnings
