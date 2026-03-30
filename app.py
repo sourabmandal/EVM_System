@@ -137,7 +137,7 @@ with tab1:
                 st.warning(w)
 
             st.success(
-                f"✅ Randomization complete — "
+                f"✅ Randomization complete - "
                 f"**{summary['total_evms']} EVMs** assigned across "
                 f"**{summary['total_const']} constituencies**"
             )
