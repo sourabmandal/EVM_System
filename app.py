@@ -69,7 +69,7 @@ st.markdown("""
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("## 🗳️ EVM Randomization System")
-st.markdown("Election Commission — Secure, Transparent & Verifiable")
+st.markdown("Secure, Transparent & Verifiable")
 st.divider()
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
