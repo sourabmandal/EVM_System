@@ -75,7 +75,7 @@ st.divider()
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 #tab1, tab2 = st.tabs(["  Phase 1 - Constituency Assignment  ", "  Phase 2 - Polling Station Assignment  "])
 
-tab1 = st.tabs(["  Phase 1 - Constituency Assignment  "])
+tab1 = st.tabs(["  Phase 1 - Constituency Assignment  "])[0]
 # ═══════════════════════════════════════════════════════════════════════════════
 #  PHASE 1
 # ═══════════════════════════════════════════════════════════════════════════════
