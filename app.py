@@ -73,9 +73,14 @@ st.markdown("Secure, Transparent & Verifiable")
 st.divider()
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-#tab1, tab2 = st.tabs(["  Phase 1 - Constituency Assignment  ", "  Phase 2 - Polling Station Assignment  "])
+#Hide the following, if only one phase is needed to be shown
+tab1, tab2 = st.tabs(["  Phase 1 - Constituency Assignment  ", "  Phase 2 - Polling Station Assignment  "])
 
-tab1 = st.tabs(["  Phase 1 - Constituency Assignment  "])[0]
+#Phase 1
+#tab1 = st.tabs(["  Phase 1 - Constituency Assignment  "])[0]
+
+#Phase 2
+#tab2 = st.tabs([" Phase 2 - Polling Station Assignment "])[0]
 # ═══════════════════════════════════════════════════════════════════════════════
 #  PHASE 1
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -202,104 +207,104 @@ with tab1:
 # ═══════════════════════════════════════════════════════════════════════════════
 #  PHASE 2
 # ═══════════════════════════════════════════════════════════════════════════════
-# with tab2:
-#     st.markdown("""
-#     <div class="step-box">
-#     In Phase 2, polling stations are randomly assigned to EVMs <strong>within each constituency</strong>
-#     based on the Phase 1 output. Phase 1 must be completed before running Phase 2.
-#     </div>
-#     """, unsafe_allow_html=True)
+with tab2:
+    st.markdown("""
+    <div class="step-box">
+    In Phase 2, polling stations are randomly assigned to EVMs <strong>within each constituency</strong>
+    based on the Phase 1 output. Phase 1 must be completed before running Phase 2.
+    </div>
+    """, unsafe_allow_html=True)
 
-#     # Step 1 — Upload
-#     st.markdown("### Step 1 - Upload Input Files")
-#     col3, col4 = st.columns(2)
+    # Step 1 — Upload
+    st.markdown("### Step 1 - Upload Input Files")
+    col3, col4 = st.columns(2)
 
-#     with col3:
-#         st.markdown("**Phase 1 Output File**")
-#         st.caption("Columns: EVMSlNo, EVMCode, RO/ARO's Office, Constituency Name")
-#         p1_out_file = st.file_uploader(
-#             "Upload Phase 1 Output",
-#             type=["xlsx"],
-#             key="p2_p1out",
-#             label_visibility="collapsed",
-#         )
+    with col3:
+        st.markdown("**Phase 1 Output File**")
+        st.caption("Columns: EVMSlNo, EVMCode, RO/ARO's Office, Constituency Name")
+        p1_out_file = st.file_uploader(
+            "Upload Phase 1 Output",
+            type=["xlsx"],
+            key="p2_p1out",
+            label_visibility="collapsed",
+        )
 
-#     with col4:
-#         st.markdown("**Polling Station List**")
-#         st.caption("Columns: Slno, RO/ARO's Office, Constituency Name, Polling Station No., Polling Station Name")
-#         ps2_file = st.file_uploader(
-#             "Upload Polling Station List",
-#             type=["xlsx"],
-#             key="p2_ps",
-#             label_visibility="collapsed",
-#         )
+    with col4:
+        st.markdown("**Polling Station List**")
+        st.caption("Columns: Slno, RO/ARO's Office, Constituency Name, Polling Station No., Polling Station Name")
+        ps2_file = st.file_uploader(
+            "Upload Polling Station List",
+            type=["xlsx"],
+            key="p2_ps",
+            label_visibility="collapsed",
+        )
 
-#     if p1_out_file:
-#         st.success(f"✅ Phase 1 output uploaded: **{p1_out_file.name}**")
-#     if ps2_file:
-#         st.success(f"✅ Polling station file uploaded: **{ps2_file.name}**")
+    if p1_out_file:
+        st.success(f"✅ Phase 1 output uploaded: **{p1_out_file.name}**")
+    if ps2_file:
+        st.success(f"✅ Polling station file uploaded: **{ps2_file.name}**")
 
-#     # Step 2 — Randomize
-#     st.markdown("### Step 2 - Run Randomization")
+    # Step 2 — Randomize
+    st.markdown("### Step 2 - Run Randomization")
 
-#     if st.button("⚙️  Run Phase 2 Randomization", key="run_p2",
-#                  disabled=not (p1_out_file and ps2_file)):
-#         try:
-#             with st.spinner("Assigning polling stations to EVMs..."):
-#                 phase1_df  = pd.read_excel(p1_out_file, dtype=str).fillna("")
-#                 polling_df = pd.read_excel(ps2_file,    dtype=str).fillna("")
-#                 result2_df, summary2, warnings2 = phase2_randomization(phase1_df, polling_df)
+    if st.button("⚙️  Run Phase 2 Randomization", key="run_p2",
+                 disabled=not (p1_out_file and ps2_file)):
+        try:
+            with st.spinner("Assigning polling stations to EVMs..."):
+                phase1_df  = pd.read_excel(p1_out_file, dtype=str).fillna("")
+                polling_df = pd.read_excel(ps2_file,    dtype=str).fillna("")
+                result2_df, summary2, warnings2 = phase2_randomization(phase1_df, polling_df)
 
-#             st.session_state["p2_result"]  = result2_df
-#             st.session_state["p2_summary"] = summary2
-#             st.session_state["p2_done"]    = True
+            st.session_state["p2_result"]  = result2_df
+            st.session_state["p2_summary"] = summary2
+            st.session_state["p2_done"]    = True
 
-#             for w in warnings2:
-#                 st.warning(f"⚠️ {w}")
+            for w in warnings2:
+                st.warning(f"⚠️ {w}")
 
-#             st.success(
-#                 f"✅ Phase 2 complete - "
-#                 f"**{summary2['total_evms']} EVMs** assigned to polling stations"
-#             )
+            st.success(
+                f"✅ Phase 2 complete - "
+                f"**{summary2['total_evms']} EVMs** assigned to polling stations"
+            )
 
-#             # Preview table
-#             st.markdown("**Preview (first 10 rows):**")
-#             st.dataframe(result2_df.head(10), use_container_width=True, hide_index=True)
+            # Preview table
+            st.markdown("**Preview (first 10 rows):**")
+            st.dataframe(result2_df.head(10), use_container_width=True, hide_index=True)
 
-#         except Exception as e:
-#             st.error(f"❌ Error: {e}")
+        except Exception as e:
+            st.error(f"❌ Error: {e}")
 
-#     elif not (p1_out_file and ps2_file):
-#         st.info("Please upload both files above to enable randomization.")
+    elif not (p1_out_file and ps2_file):
+        st.info("Please upload both files above to enable randomization.")
 
-#     elif st.session_state.get("p2_done"):
-#         result2_df = st.session_state["p2_result"]
-#         summary2   = st.session_state["p2_summary"]
-#         st.success(
-#             f"✅ Phase 2 complete - "
-#             f"**{summary2['total_evms']} EVMs** assigned to polling stations"
-#         )
-#         st.dataframe(result2_df.head(10), use_container_width=True, hide_index=True)
+    elif st.session_state.get("p2_done"):
+        result2_df = st.session_state["p2_result"]
+        summary2   = st.session_state["p2_summary"]
+        st.success(
+            f"✅ Phase 2 complete - "
+            f"**{summary2['total_evms']} EVMs** assigned to polling stations"
+        )
+        st.dataframe(result2_df.head(10), use_container_width=True, hide_index=True)
 
-#     # Step 3 — Download
-#     st.markdown("### Step 3 - Download Result")
+    # Step 3 — Download
+    st.markdown("### Step 3 - Download Result")
 
-#     if st.session_state.get("p2_done"):
-#         result2_df  = st.session_state["p2_result"]
-#         excel_bytes2 = to_excel_bytes(
-#             result2_df,
-#             sheet_name="Phase2_Randomization",
-#             col_widths=[12, 18, 25, 28, 20, 30],
-#         )
-#         st.download_button(
-#             label="⬇️  Download Phase 2 Output (Excel)",
-#             data=excel_bytes2,
-#             file_name="Phase2_EVM_Randomization_Output.xlsx",
-#             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-#         )
-#     else:
-#         st.button("⬇️  Download Phase 2 Output (Excel)", disabled=True, key="dl_p2_disabled")
-#         st.caption("Run Phase 2 randomization first to enable download.")
+    if st.session_state.get("p2_done"):
+        result2_df  = st.session_state["p2_result"]
+        excel_bytes2 = to_excel_bytes(
+            result2_df,
+            sheet_name="Phase2_Randomization",
+            col_widths=[12, 18, 25, 28, 20, 30],
+        )
+        st.download_button(
+            label="⬇️  Download Phase 2 Output (Excel)",
+            data=excel_bytes2,
+            file_name="Phase2_EVM_Randomization_Output.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    else:
+        st.button("⬇️  Download Phase 2 Output (Excel)", disabled=True, key="dl_p2_disabled")
+        st.caption("Run Phase 2 randomization first to enable download.")
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("""
