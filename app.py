@@ -73,8 +73,8 @@ st.markdown("Secure, Transparent & Verifiable")
 st.divider()
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab1, tab2 = st.tabs(["  Phase 1 — Constituency Assignment  ",
-                       "  Phase 2 — Polling Station Assignment  "])
+tab1, tab2 = st.tabs(["  Phase 1 - Constituency Assignment  ",
+                       "  Phase 2 - Polling Station Assignment  "])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
