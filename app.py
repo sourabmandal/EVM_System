@@ -253,23 +253,29 @@ with tab2:
             with st.spinner("Assigning polling stations to EVMs..."):
                 phase1_df  = pd.read_excel(p1_out_file, dtype=str).fillna("")
                 polling_df = pd.read_excel(ps2_file,    dtype=str).fillna("")
-                result2_df, summary2, warnings2 = phase2_randomization(phase1_df, polling_df)
+                assigned_df, reserved_df, summary2, warnings2 = phase2_randomization(phase1_df, polling_df)
 
-            st.session_state["p2_result"]  = result2_df
-            st.session_state["p2_summary"] = summary2
-            st.session_state["p2_done"]    = True
+            st.session_state["p2_assigned"] = assigned_df
+            st.session_state["p2_reserved"] = reserved_df
+            st.session_state["p2_summary"]  = summary2
+            st.session_state["p2_done"]     = True
 
             for w in warnings2:
                 st.warning(f"⚠️ {w}")
 
             st.success(
-                f"✅ Phase 2 complete - "
-                f"**{summary2['total_evms']} EVMs** assigned to polling stations"
+                f"✅ Phase 2 complete — "
+                f"**{summary2['total_assigned']} EVMs** assigned to polling stations | "
+                f"**{summary2['total_reserved']} EVMs** in reserve"
             )
 
-            # Preview table
-            st.markdown("**Preview (first 10 rows):**")
-            st.dataframe(result2_df.head(10), use_container_width=True, hide_index=True)
+            # Preview assigned
+            st.markdown("**Assigned EVMs — Preview (first 10 rows):**")
+            st.dataframe(assigned_df.head(10), use_container_width=True, hide_index=True)
+
+            # Preview reserved
+            st.markdown("**Reserved EVMs — Preview (first 10 rows):**")
+            st.dataframe(reserved_df.head(10), use_container_width=True, hide_index=True)
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
@@ -278,30 +284,51 @@ with tab2:
         st.info("Please upload both files above to enable randomization.")
 
     elif st.session_state.get("p2_done"):
-        result2_df = st.session_state["p2_result"]
-        summary2   = st.session_state["p2_summary"]
+        assigned_df = st.session_state["p2_assigned"]
+        reserved_df = st.session_state["p2_reserved"]
+        summary2    = st.session_state["p2_summary"]
         st.success(
-            f"✅ Phase 2 complete - "
-            f"**{summary2['total_evms']} EVMs** assigned to polling stations"
+            f"✅ Phase 2 complete — "
+            f"**{summary2['total_assigned']} EVMs** assigned | "
+            f"**{summary2['total_reserved']} EVMs** in reserve"
         )
-        st.dataframe(result2_df.head(10), use_container_width=True, hide_index=True)
+        st.markdown("**Assigned EVMs — Preview (first 10 rows):**")
+        st.dataframe(assigned_df.head(10), use_container_width=True, hide_index=True)
+        st.markdown("**Reserved EVMs — Preview (first 10 rows):**")
+        st.dataframe(reserved_df.head(10), use_container_width=True, hide_index=True)
 
     # Step 3 — Download
     st.markdown("### Step 3 - Download Result")
 
     if st.session_state.get("p2_done"):
-        result2_df  = st.session_state["p2_result"]
-        excel_bytes2 = to_excel_bytes(
-            result2_df,
-            sheet_name="Phase2_Randomization",
-            col_widths=[12, 18, 25, 28, 20, 30],
-        )
-        st.download_button(
-            label="⬇️  Download Phase 2 Output (Excel)",
-            data=excel_bytes2,
-            file_name="Phase2_EVM_Randomization_Output.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
+        assigned_df = st.session_state["p2_assigned"]
+        reserved_df = st.session_state["p2_reserved"]
+
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            st.download_button(
+                label="⬇️  Download Assigned EVMs",
+                data=to_excel_bytes(
+                    assigned_df,
+                    sheet_name="Assigned_EVMs",
+                    col_widths=[12, 18, 25, 28, 20, 30],
+                ),
+                file_name="Phase2_Assigned_EVMs.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+
+        with col_b:
+            st.download_button(
+                label="⬇️  Download Reserved EVMs",
+                data=to_excel_bytes(
+                    reserved_df,
+                    sheet_name="Reserved_EVMs",
+                    col_widths=[12, 18, 25, 28],
+                ),
+                file_name="Phase2_Reserved_EVMs.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
     else:
         st.button("⬇️  Download Phase 2 Output (Excel)", disabled=True, key="dl_p2_disabled")
         st.caption("Run Phase 2 randomization first to enable download.")
@@ -315,6 +342,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Session state init ────────────────────────────────────────────────────────
-for key in ["p1_done", "p1_result", "p1_summary", "p2_done", "p2_result", "p2_summary"]:
+for key in ["p1_done", "p1_result", "p1_summary", "p2_done", "p2_assigned", "p2_reserved", "p2_summary"]:
     if key not in st.session_state:
         st.session_state[key] = None
