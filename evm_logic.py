@@ -340,7 +340,7 @@ def run_phase2(phase1_file, ps_file, seed=None):
                 "CU Unit ID": cu_list[i],
                 "RO/ARO's Office": ro_office,
                 "Constituency Name": const_name,
-                "Polling Station No.": "",
+                "Polling Station No.": "NA",
                 "Polling Station Name": "RESERVED",
             })
             new_evm_sl += 1
