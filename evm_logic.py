@@ -270,6 +270,7 @@ def run_phase2(phase1_file, ps_file, seed=None):
     animation_frames = []
     new_evm_sl = 1
 
+    # Guarantees shuffling of BUs and CUs within the same constituencies
     for const_name in constituencies:
         evm_sub = phase1_df[phase1_df["Constituency Name"] == const_name].copy().reset_index(drop=True)
         ps_sub = ps_df[ps_df["Constituency Name"] == const_name].copy().reset_index(drop=True)
