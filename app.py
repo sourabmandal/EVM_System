@@ -352,7 +352,7 @@ def main_app():
             with col1:
                 st.markdown("**Polling Station List**")
                 ps_file = st.file_uploader(
-                    "Columns: Slno, RO/ARO's Office, Constituency Name, Polling Station No., Polling Station Name",
+                    "Column: Slno, RO/ARO's Office, Constituency Name, Polling Station No., Polling Station Name",
                     type=["xlsx", "xls"],
                     key="p1_ps",
                 )
