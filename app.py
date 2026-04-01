@@ -309,7 +309,7 @@ def main_app():
     st.markdown("""
     <div class="main-header">
         <h1>EVM Randomization System</h1>
-        <p>Election Commission of India - Secure Randomization Portal</p>
+        <p>Secure Randomization Portal</p>
     </div>
     """, unsafe_allow_html=True)
 
