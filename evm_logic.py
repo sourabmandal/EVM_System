@@ -282,9 +282,12 @@ def run_phase2(phase1_file, ps_file, seed=None):
         random.shuffle(bu_list)
         random.shuffle(cu_list)
 
-        # Shuffle polling stations within this constituency
+        # Shuffle polling stations within this constituency <-------------------- No need to shuffle this, hence commenting out.
+        # ps_list = ps_sub[["Polling Station No.", "Polling Station Name"]].values.tolist()
+        # random.shuffle(ps_list)
+
+        # Keep polling stations in original file order
         ps_list = ps_sub[["Polling Station No.", "Polling Station Name"]].values.tolist()
-        random.shuffle(ps_list)
 
         n_bu = len(bu_list)
         n_cu = len(cu_list)
