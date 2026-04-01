@@ -352,21 +352,21 @@ def main_app():
             with col1:
                 st.markdown("**Polling Station List**")
                 ps_file = st.file_uploader(
-                    "Column: Slno, RO/ARO's Office, Constituency Name, Polling Station No., Polling Station Name",
+                    "Columns: Slno, RO/ARO's Office, Constituency Name, Polling Station No., Polling Station Name",
                     type=["xlsx", "xls"],
                     key="p1_ps",
                 )
             with col2:
                 st.markdown("**Ballot Unit (BU) Details**")
                 bu_file = st.file_uploader(
-                    "Columns: S. No., Unit ID, Box No., Status",
+                    "Columns: S. No., Unit ID, Status",
                     type=["xlsx", "xls"],
                     key="p1_bu",
                 )
             with col3:
                 st.markdown("**Control Unit (CU) Details**")
                 cu_file = st.file_uploader(
-                    "Columns: S. No., Unit ID, Box No., Status",
+                    "Columns: S. No., Unit ID, Status",
                     type=["xlsx", "xls"],
                     key="p1_cu",
                 )
@@ -459,7 +459,7 @@ def main_app():
             with col1:
                 st.markdown("**Phase 1 Output File**")
                 p1_out_file = st.file_uploader(
-                    "Columns: EVMSlNo, BU Unit ID, BU Box No., CU Unit ID, CU Box No., RO/ARO's Office, Constituency Name",
+                    "Columns: EVMSlNo, BU Unit ID, CU Unit ID, RO/ARO's Office, Constituency Name",
                     type=["xlsx", "xls"],
                     key="p2_p1out",
                 )
