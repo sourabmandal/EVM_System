@@ -216,7 +216,7 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None):
             "No. of Polling Stations": ps_count,
             "No. of BUs Assigned": assigned_count,
             "No. of CUs Assigned": assigned_count,
-            "Assigned vs PS (%)": assigned_pct,
+            "Assigned EVM vs PS (%)": assigned_pct,
         })
     constituency_summary = pd.DataFrame(summary_rows)
 
