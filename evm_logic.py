@@ -103,28 +103,65 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None):
     random.shuffle(bu_list)
     random.shuffle(cu_list)
 
-    # -- Assign BUs to constituencies round-robin -----------------------------
+    # -- Compute polling station counts per constituency ----------------------
+    ps_counts = (
+        ps_df.groupby("Constituency Name")
+        .size()
+        .reindex(constituencies, fill_value=0)
+    )
+    total_ps = ps_counts.sum()
+
+    if total_ps == 0:
+        raise ValueError("Total polling station count is zero. Cannot compute ratios.")
+
+    #---------- BUs and CUs are allocated randomly by the ratio of the polling stations -------------
+
+    def _allocate_by_ratio(unit_list, ps_counts, constituencies, total_ps):
+        """
+        Distribute units across constituencies proportional to polling station
+        counts using the largest remainder method to handle rounding.
+        Returns a dict: constituency_name -> list of unit_ids.
+        """
+        n_units = len(unit_list)
+        raw = {c: (ps_counts[c] / total_ps) * n_units for c in constituencies}
+        floored = {c: int(raw[c]) for c in constituencies}
+        remainders = {c: raw[c] - floored[c] for c in constituencies}
+        shortfall = n_units - sum(floored.values())
+        sorted_by_remainder = sorted(constituencies, key=lambda c: remainders[c], reverse=True)
+        for i in range(shortfall):
+            floored[sorted_by_remainder[i]] += 1
+        allocation = {}
+        idx = 0
+        for c in constituencies:
+            count = floored[c]
+            allocation[c] = unit_list[idx: idx + count]
+            idx += count
+        return allocation
+
+    bu_allocation = _allocate_by_ratio(bu_list, ps_counts, constituencies, total_ps)
+    cu_allocation = _allocate_by_ratio(cu_list, ps_counts, constituencies, total_ps)
+
+    # -- Build assignment DataFrames from allocations -------------------------
     bu_assignments = []
-    for idx, unit_id in enumerate(bu_list):
-        const_name = constituencies[idx % n_const]
+    for const_name in constituencies:
         ro_office = constituency_info.loc[
             constituency_info["Constituency Name"] == const_name,
             "RO/ARO's Office"
         ].values[0]
-        bu_assignments.append({
-            "Constituency Name": const_name,
-            "RO/ARO's Office": ro_office,
-            "BU Unit ID": unit_id,
-        })
+        for unit_id in bu_allocation[const_name]:
+            bu_assignments.append({
+                "Constituency Name": const_name,
+                "RO/ARO's Office": ro_office,
+                "BU Unit ID": unit_id,
+            })
 
-    # -- Assign CUs to constituencies round-robin -----------------------------
     cu_assignments = []
-    for idx, unit_id in enumerate(cu_list):
-        const_name = constituencies[idx % n_const]
-        cu_assignments.append({
-            "Constituency Name": const_name,
-            "CU Unit ID": unit_id,
-        })
+    for const_name in constituencies:
+        for unit_id in cu_allocation[const_name]:
+            cu_assignments.append({
+                "Constituency Name": const_name,
+                "CU Unit ID": unit_id,
+            })
 
     bu_assign_df = pd.DataFrame(bu_assignments)
     cu_assign_df = pd.DataFrame(cu_assignments)
