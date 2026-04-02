@@ -141,8 +141,8 @@ div[data-testid="stDataFrame"] {
     overflow: hidden;
 }
 
-.stButton > button {
-    background: linear-gradient(135deg, #0077b6, #00b4d8);
+.stDownloadButton > button {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
     color: white;
     border: none;
     border-radius: 8px;
@@ -154,9 +154,9 @@ div[data-testid="stDataFrame"] {
     transition: all 0.2s ease;
 }
 
-.stButton > button:hover {
-    background: linear-gradient(135deg, #005f8e, #0096b8);
-    box-shadow: 0 4px 15px rgba(0, 119, 182, 0.4);
+.stDownloadButton > button:hover {
+    background: linear-gradient(135deg, #2ecc71, #58d68d);
+    box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4);
     transform: translateY(-1px);
 }
 
