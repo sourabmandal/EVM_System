@@ -160,6 +160,25 @@ div[data-testid="stDataFrame"] {
     transform: translateY(-1px);
 }
 
+.stDownloadButton > button {
+    background: linear-gradient(135deg, #1a7a4a, #27ae60);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.55rem 2rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    transition: all 0.2s ease;
+}
+
+.stDownloadButton > button:hover {
+    background: linear-gradient(135deg, #145c38, #1e8449);
+    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+    transform: translateY(-1px);
+}
+
 .sidebar-info {
     background: #e8f4fd;
     border-radius: 8px;
@@ -444,7 +463,7 @@ def main_app():
             # Download
             excel_bytes = get_phase1_excel(result_df)
             st.download_button(
-                label="Download Phase 1 Output (Excel)",
+                label="Finalize and Download Phase 1 Output (Excel)",
                 data=excel_bytes,
                 file_name="phase1_randomization_output.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -555,7 +574,7 @@ def main_app():
             # Download
             excel_bytes = get_phase2_excel(assigned_df, reserved_df)
             st.download_button(
-                label="Download Phase 2 Output (Excel - Assigned + Reserved sheets)",
+                label="Finalize and Download Phase 2 Output (Excel - Assigned + Reserved sheets)",
                 data=excel_bytes,
                 file_name="phase2_randomization_output.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
