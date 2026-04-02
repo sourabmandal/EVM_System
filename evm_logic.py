@@ -28,16 +28,28 @@ def _normalise_status(df: pd.DataFrame) -> pd.DataFrame:
 def _find_box_column(df: pd.DataFrame):
     """
     Return the actual Box No. column name if present, else None.
-    Accepts common variants like:
-      - Box No.
-      - Box No
-      - Box Number
-      - BoxNo
+    Accept flexible variants like:
+      Box No., Box No, Box Number, BoxNo, BOX NO, Box_No, etc.
+    Also supports BU/CU-prefixed box headers.
     """
-    candidates = {"box no.", "box no", "box number", "boxno"}
     for col in df.columns:
-        if str(col).strip().lower() in candidates:
+        norm = str(col).strip().lower()
+        norm = norm.replace("_", " ").replace("-", " ").replace(".", " ")
+        norm = " ".join(norm.split())
+
+        accepted = {
+            "box no",
+            "box number",
+            "boxno",
+            "bu box no",
+            "bu box number",
+            "cu box no",
+            "cu box number",
+        }
+
+        if norm in accepted:
             return col
+
     return None
 
 
