@@ -391,7 +391,7 @@ def main_app():
                     key="p1_cu",
                 )
 
-        if st.button("Run Phase 1 Randomization ♻️", use_container_width=True):
+        if st.button("Run Phase 1 Randomization ", use_container_width=True):
             if not ps_file or not bu_file or not cu_file:
                 st.error("Please upload all three files before running.")
             else:
@@ -498,7 +498,7 @@ def main_app():
                     key="p2_ps",
                 )
 
-        if st.button("Run Phase 2 Randomization ♻️", use_container_width=True):
+        if st.button("Run Phase 2 Randomization ", use_container_width=True):
             if not p1_out_file or not ps2_file:
                 st.error("Please upload both files before running.")
             else:
