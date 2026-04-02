@@ -141,6 +141,25 @@ div[data-testid="stDataFrame"] {
     overflow: hidden;
 }
 
+.stButton > button {
+    background: linear-gradient(135deg, #0077b6, #00b4d8) !important;
+    color: white !important;
+    border: none;
+    border-radius: 8px;
+    padding: 0.55rem 2rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    transition: all 0.2s ease;
+}
+
+.stButton > button:hover {
+    background: linear-gradient(135deg, #005f8e, #0096b8) !important;
+    box-shadow: 0 4px 15px rgba(0, 119, 182, 0.4);
+    transform: translateY(-1px);
+}
+
 .stDownloadButton > button {
     background: linear-gradient(135deg, #27ae60, #2ecc71);
     color: white;
@@ -160,24 +179,6 @@ div[data-testid="stDataFrame"] {
     transform: translateY(-1px);
 }
 
-.stDownloadButton > button {
-    background: linear-gradient(135deg, #1a7a4a, #27ae60);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 0.55rem 2rem;
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 1rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    transition: all 0.2s ease;
-}
-
-.stDownloadButton > button:hover {
-    background: linear-gradient(135deg, #145c38, #1e8449);
-    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
-    transform: translateY(-1px);
-}
 
 .sidebar-info {
     background: #e8f4fd;
