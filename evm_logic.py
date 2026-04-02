@@ -209,6 +209,7 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None):
         summary_rows.append({
             "Constituency Name": const_name,
             "RO/ARO's Office": sub["RO/ARO's Office"].iloc[0] if not sub.empty else "",
+            "No. of Polling Stations": int(ps_counts[const_name]),
             "No. of BUs Assigned": len(sub),
             "No. of CUs Assigned": len(sub),
             "Total EVMs": len(sub),
