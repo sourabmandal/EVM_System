@@ -409,7 +409,8 @@ def main_app():
             total_cus = summary["No. of CUs Assigned"].sum()
             total_const = len(summary)
 
-            col1, col2, col3 = st.columns(3)
+            total_ps_count = summary["No. of Polling Stations"].sum()
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.markdown(
                     f'<div class="stat-box"><div class="label">Total Constituencies</div>'
@@ -418,11 +419,17 @@ def main_app():
                 )
             with col2:
                 st.markdown(
+                    f'<div class="stat-box"><div class="label">Total Polling Stations</div>'
+                    f'<div class="value">{total_ps_count}</div></div>',
+                    unsafe_allow_html=True,
+                )
+            with col3:
+                st.markdown(
                     f'<div class="stat-box"><div class="label">Total BUs Assigned</div>'
                     f'<div class="value">{total_bus}</div></div>',
                     unsafe_allow_html=True,
                 )
-            with col3:
+            with col4:
                 st.markdown(
                     f'<div class="stat-box"><div class="label">Total CUs Assigned</div>'
                     f'<div class="value">{total_cus}</div></div>',
