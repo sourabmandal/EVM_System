@@ -213,7 +213,7 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None):
             "PS Share (%)": round((ps_counts[const_name] / total_ps) * 100, 2),
             "No. of BUs Assigned": len(sub),
             "No. of CUs Assigned": len(sub),
-            "Total EVMs": len(sub),
+            #"Total EVMs": len(sub),
         })
     constituency_summary = pd.DataFrame(summary_rows)
 
