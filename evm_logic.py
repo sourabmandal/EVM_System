@@ -404,6 +404,11 @@ def run_phase2(phase1_file, ps_file, seed=None):
     )
 
     # -- Reserved summary -----------------------------------------------------
+    ps_counts_p2 = (
+        ps_df.groupby("Constituency Name")
+        .size()
+        .reset_index(name="No. of Polling Stations")
+    )
     if not reserved_df.empty:
         reserved_summary = (
             reserved_df.groupby(["Constituency Name", "RO/ARO's Office"])
@@ -414,6 +419,19 @@ def run_phase2(phase1_file, ps_file, seed=None):
         reserved_summary = pd.DataFrame(
             columns=["Constituency Name", "RO/ARO's Office", "Reserved EVMs"]
         )
+    reserved_summary = reserved_summary.merge(ps_counts_p2, on="Constituency Name", how="left")
+    assigned_summary = (
+        assigned_df.groupby(["Constituency Name", "RO/ARO's Office"])
+        .size()
+        .reset_index(name="Assigned EVMs")
+    )
+    reserved_summary = reserved_summary.merge(assigned_summary, on=["Constituency Name", "RO/ARO's Office"], how="left")
+    reserved_summary["Assigned EVMs"] = reserved_summary["Assigned EVMs"].fillna(0).astype(int)
+    reserved_summary["Reserved EVMs"] = reserved_summary["Reserved EVMs"].fillna(0).astype(int)
+    reserved_summary = reserved_summary[[
+        "Constituency Name", "RO/ARO's Office",
+        "No. of Polling Stations", "Assigned EVMs", "Reserved EVMs"
+    ]]
 
     return assigned_df, reserved_df, reserved_summary, animation_frames, warnings
 
