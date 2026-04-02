@@ -206,14 +206,17 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None):
     summary_rows = []
     for const_name in constituencies:
         sub = result_df[result_df["Constituency Name"] == const_name]
+        ps_count = int(ps_counts[const_name])
+        assigned_count = len(sub)
+        assigned_pct = round((assigned_count / ps_count) * 100, 2) if ps_count else 0
+
         summary_rows.append({
             "Constituency Name": const_name,
             "RO/ARO's Office": sub["RO/ARO's Office"].iloc[0] if not sub.empty else "",
-            "No. of Polling Stations": int(ps_counts[const_name]),
-            "PS Share (%)": round((ps_counts[const_name] / total_ps) * 100, 2),
-            "No. of BUs Assigned": len(sub),
-            "No. of CUs Assigned": len(sub),
-            #"Total EVMs": len(sub),
+            "No. of Polling Stations": ps_count,
+            "No. of BUs Assigned": assigned_count,
+            "No. of CUs Assigned": assigned_count,
+            "Assigned vs PS (%)": assigned_pct,
         })
     constituency_summary = pd.DataFrame(summary_rows)
 
