@@ -80,12 +80,77 @@ def _allocate_by_ratio(items, ps_counts, constituencies, total_ps):
 
     return allocation
 
+def get_phase1_capacity(ps_file, bu_file, cu_file):
+    """
+    Return Phase 1 capacity details so UI can show max assignable percentage.
+    """
+    ps_df = _read_excel(ps_file)
+    bu_df = _read_excel(bu_file)
+    cu_df = _read_excel(cu_file)
+
+    required_ps = {"RO/ARO's Office", "Constituency Name", "Polling Station No.", "Polling Station Name"}
+    required_bu = {"Unit ID", "Status"}
+    required_cu = {"Unit ID", "Status"}
+
+    missing_ps = required_ps - set(ps_df.columns)
+    missing_bu = required_bu - set(bu_df.columns)
+    missing_cu = required_cu - set(cu_df.columns)
+
+    if missing_ps or missing_bu or missing_cu:
+        raise ValueError(
+            f"Missing columns -- PS: {missing_ps}, BU: {missing_bu}, CU: {missing_cu}"
+        )
+
+    bu_df = _normalise_status(bu_df)
+    cu_df = _normalise_status(cu_df)
+
+    # Explicitly remove rejected / training entries if you have added that helper
+    if "_remove_rejected_training" in globals():
+        bu_df = _remove_rejected_training(bu_df)
+        cu_df = _remove_rejected_training(cu_df)
+
+    bu_available_count = (bu_df["Status"] == "available for use").sum()
+    cu_available_count = (cu_df["Status"] == "available for use").sum()
+    total_ps = len(ps_df)
+
+    if total_ps == 0:
+        raise ValueError("Total polling station count is zero.")
+
+    max_pairs = min(bu_available_count, cu_available_count)
+    max_percentage = round((max_pairs / total_ps) * 100, 2)
+
+    return {
+        "total_polling_stations": int(total_ps),
+        "available_bus": int(bu_available_count),
+        "available_cus": int(cu_available_count),
+        "max_pairs": int(max_pairs),
+        "max_percentage": float(max_percentage),
+    }
+
+
+def _cap_records_to_percentage(records, total_ps, percentage):
+    """
+    Keep only the number of records needed for the requested percentage
+    of polling stations.
+    """
+    if percentage is None:
+        return records
+
+    required_pairs = int((percentage / 100) * total_ps)
+
+    # if percentage > 0 but rounding gives 0, allocate at least 1 pair
+    if percentage > 0 and required_pairs == 0:
+        required_pairs = 1
+
+    required_pairs = min(required_pairs, len(records))
+    return records[:required_pairs]
+
 
 # ---------------------------------------------------------------------------
 # Phase 1
 # ---------------------------------------------------------------------------
 
-def run_phase1(ps_file, bu_file, cu_file, seed=None):
+def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm_percentage=None):
     """
     Randomly assign available BUs and CUs to constituencies.
 
@@ -185,7 +250,7 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None):
     random.shuffle(bu_records)
     random.shuffle(cu_records)
 
-    # -- Compute polling station counts per constituency ----------------------
+        # -- Compute polling station counts per constituency ----------------------
     ps_counts = (
         ps_df.groupby("Constituency Name")
         .size()
@@ -195,6 +260,31 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None):
 
     if total_ps == 0:
         raise ValueError("Total polling station count is zero. Cannot compute ratios.")
+
+    # -- Limit usable pool if percentage mode is selected ---------------------
+    max_pairs_possible = min(len(bu_records), len(cu_records))
+    max_percentage_possible = (max_pairs_possible / total_ps) * 100
+
+    if not use_all_available:
+        if evm_percentage is None:
+            raise ValueError("EVM percentage is required when 'Use all available' is not selected.")
+
+        if evm_percentage <= 0:
+            raise ValueError("EVM percentage must be greater than 0.")
+
+        if evm_percentage > max_percentage_possible:
+            raise ValueError(
+                f"Requested percentage ({evm_percentage}%) exceeds maximum possible "
+                f"percentage ({round(max_percentage_possible, 2)}%)."
+            )
+
+        bu_records = _cap_records_to_percentage(bu_records, total_ps, evm_percentage)
+        cu_records = _cap_records_to_percentage(cu_records, total_ps, evm_percentage)
+
+        warnings.append(
+            f"Percentage mode selected: only enough units for {evm_percentage}% of polling stations "
+            f"have been included in Phase 1 randomization."
+        )
 
     # -- Allocate BUs and CUs by polling station ratio ------------------------
     bu_allocation = _allocate_by_ratio(bu_records, ps_counts, constituencies, total_ps)
