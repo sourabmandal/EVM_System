@@ -401,7 +401,7 @@ def main_app():
             "Upload the three input files below. The system will randomly assign "
             "all available BUs and CUs to constituencies."
         )
-                st.markdown("### Download Blank Templates")
+        st.markdown("### Download Blank Templates")
         t1, t2, t3 = st.columns(3)
 
         with t1:
