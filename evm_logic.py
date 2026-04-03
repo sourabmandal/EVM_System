@@ -95,7 +95,7 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None):
       CU file : Unit ID, Status, [optional Box No.]
 
     Output columns:
-      EVMSlNo, BU Unit ID, [BU Box No.], CU Unit ID, [CU Box No.],
+      SlNo, BU Unit ID, [BU Box No.], CU Unit ID, [CU Box No.],
       RO/ARO's Office, Constituency Name
 
     Returns
@@ -255,7 +255,7 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None):
 
         for i in range(n_pairs):
             row = {
-                "EVMSlNo": evm_sl,
+                "SlNo": evm_sl,
                 "BU Unit ID": bu_const.at[i, "BU Unit ID"],
                 "CU Unit ID": cu_const.at[i, "CU Unit ID"],
                 "RO/ARO's Office": ro_office,
@@ -271,7 +271,7 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None):
             evm_sl += 1
 
     # Build output columns dynamically
-    output_cols = ["EVMSlNo", "BU Unit ID"]
+    output_cols = ["SlNo", "BU Unit ID"]
     if bu_box_col:
         output_cols.append("BU Box No.")
     output_cols.append("CU Unit ID")
@@ -376,7 +376,7 @@ def run_phase2(phase1_file, ps_file, seed=None):
     phase1_df = _read_excel(phase1_file)
     ps_df = _read_excel(ps_file)
 
-    required_p1 = {"EVMSlNo", "BU Unit ID", "CU Unit ID", "RO/ARO's Office", "Constituency Name"}
+    required_p1 = {"SlNo", "BU Unit ID", "CU Unit ID", "RO/ARO's Office", "Constituency Name"}
     required_ps = {"RO/ARO's Office", "Constituency Name", "Polling Station No.", "Polling Station Name"}
 
     missing_p1 = required_p1 - set(phase1_df.columns)
@@ -456,7 +456,7 @@ def run_phase2(phase1_file, ps_file, seed=None):
         # Assigned rows
         for i in range(n_assign):
             row = {
-                "EVMSlNo": new_evm_sl,
+                "SlNo": new_evm_sl,
                 "BU Unit ID": bu_records[i]["BU Unit ID"],
                 "CU Unit ID": cu_records[i]["CU Unit ID"],
                 "RO/ARO's Office": ro_office,
@@ -493,7 +493,7 @@ def run_phase2(phase1_file, ps_file, seed=None):
             reserved_rows.append(row)
             new_evm_sl += 1
 
-    output_cols = ["EVMSlNo", "BU Unit ID"]
+    output_cols = ["SlNo", "BU Unit ID"]
     if has_bu_box:
         output_cols.append("BU Box No.")
     output_cols.append("CU Unit ID")
