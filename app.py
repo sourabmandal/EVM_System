@@ -2,6 +2,10 @@ import time
 import random
 import streamlit as st
 import pandas as pd
+import sys
+import os
+
+sys.path.append(os.path.dirname(__file__))
 
 from evm_logic import (
     run_phase1,
