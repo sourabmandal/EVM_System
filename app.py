@@ -527,6 +527,7 @@ def main_app():
 
             st.markdown('<div class="section-title">Constituency-wise EVM Summary</div>', unsafe_allow_html=True)
             summary = st.session_state["phase1_summary"]
+            summary["Assigned EVM vs PS (%)"] = summary["Assigned EVM vs PS (%)"].round(0).astype(int)
             result_df = st.session_state["phase1_result"]
 
             total_bus_assigned = summary["No. of BUs Assigned"].sum()
