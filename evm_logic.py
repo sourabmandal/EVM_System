@@ -398,7 +398,14 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm
     # -- Animation frames (preview only) -------------------------------------
     animation_frames = _build_phase1_frames(bu_records, cu_records, constituencies, n_snaps=10)
 
-    return result_df, constituency_summary, animation_frames, warnings
+    # -- Remaining unused BUs / CUs -----------------------------------------
+    assigned_bu_ids = set(result_df["BU Unit ID"]) if not result_df.empty else set()
+    assigned_cu_ids = set(result_df["CU Unit ID"]) if not result_df.empty else set()
+
+    remaining_bu_df = bu_available[~bu_available["Unit ID"].isin(assigned_bu_ids)].copy()
+    remaining_cu_df = cu_available[~cu_available["Unit ID"].isin(assigned_cu_ids)].copy()
+
+    return result_df, constituency_summary, animation_frames, warnings, remaining_bu_df, remaining_cu_df
 
 
 def _build_phase1_frames(bu_records, cu_records, constituencies, n_snaps=10):
