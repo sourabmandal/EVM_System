@@ -204,6 +204,7 @@ if "captcha_verified" not in st.session_state:
 
 for key in [
     "phase1_result", "phase1_summary", "phase1_frames", "phase1_warnings",
+    "phase1_remaining_bu", "phase1_remaining_cu",
     "phase2_assigned", "phase2_reserved", "phase2_summary", "phase2_frames", "phase2_warnings"
 ]:
     if key not in st.session_state:
@@ -501,7 +502,7 @@ def main_app():
                 with st.spinner("Randomizing EVMs across constituencies..."):
                     try:
                         seed = random.randint(0, 999999)
-                        result_df, summary, frames, warnings = run_phase1(
+                        result_df, summary, frames, warnings, remaining_bu_df, remaining_cu_df = run_phase1(
                             ps_file,
                             bu_file,
                             cu_file,
@@ -513,6 +514,8 @@ def main_app():
                         st.session_state["phase1_summary"] = summary
                         st.session_state["phase1_frames"] = frames
                         st.session_state["phase1_warnings"] = warnings
+                        st.session_state["phase1_remaining_bu"] = remaining_bu_df
+                        st.session_state["phase1_remaining_cu"] = remaining_cu_df
                     except Exception as e:
                         st.error(f"Error during Phase 1 randomization: {e}")
 
@@ -593,7 +596,37 @@ def main_app():
             result_df = st.session_state["phase1_result"]
             st.dataframe(result_df, use_container_width=True, hide_index=True)
 
-            excel_bytes = get_phase1_excel(result_df)
+            remaining_bu_df = st.session_state["phase1_remaining_bu"]
+            remaining_cu_df = st.session_state["phase1_remaining_cu"]
+            
+            st.markdown('<div class="section-title">Remaining BUs and CUs</div>', unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Remaining BUs**")
+                if remaining_bu_df is not None and not remaining_bu_df.empty:
+                    st.dataframe(remaining_bu_df, use_container_width=True, hide_index=True)
+                else:
+                    st.markdown(
+                        '<div class="success-box">No remaining BUs.</div>',
+                        unsafe_allow_html=True,
+                    )
+            
+            with col2:
+                st.markdown("**Remaining CUs**")
+                if remaining_cu_df is not None and not remaining_cu_df.empty:
+                    st.dataframe(remaining_cu_df, use_container_width=True, hide_index=True)
+                else:
+                    st.markdown(
+                        '<div class="success-box">No remaining CUs.</div>',
+                        unsafe_allow_html=True,
+                    )
+
+            excel_bytes = get_phase1_excel(
+                result_df,
+                st.session_state.get("phase1_remaining_bu"),
+                st.session_state.get("phase1_remaining_cu"),
+            )
             st.download_button(
                 label="Finalize and Download Phase 1 Output (Excel)",
                 data=excel_bytes,
