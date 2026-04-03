@@ -465,7 +465,7 @@ def main_app():
         use_all_available = st.checkbox(
             "Use all available EVMs",
             value=True,
-            help="If checked, the system behaves exactly as it does now.",
+            help="If checked, all the BUs and CUs will be randomized and assigned.",
         )
 
         evm_percentage = None
