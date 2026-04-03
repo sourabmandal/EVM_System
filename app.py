@@ -8,6 +8,7 @@ from evm_logic import (
     run_phase2,
     get_phase1_excel,
     get_phase2_excel,
+    get_phase1_capacity,
 )
 
 # ---------------------------------------------------------------------------
@@ -319,6 +320,40 @@ def captcha_page():
                 st.session_state["refresh_captcha"] = True
                 st.rerun()
 
+def get_blank_ps_template():
+    return pd.DataFrame(columns=[
+        "Slno",
+        "RO/ARO's Office",
+        "Constituency Name",
+        "Polling Station No.",
+        "Polling Station Name",
+    ])
+
+
+def get_blank_bu_template():
+    return pd.DataFrame(columns=[
+        "S. No.",
+        "Unit ID",
+        "Status",
+        "Box No.",
+    ])
+
+
+def get_blank_cu_template():
+    return pd.DataFrame(columns=[
+        "S. No.",
+        "Unit ID",
+        "Status",
+        "Box No.",
+    ])
+
+
+def dataframe_to_excel_bytes(df: pd.DataFrame) -> bytes:
+    from io import BytesIO
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False)
+    return buf.getvalue()
 
 # ---------------------------------------------------------------------------
 # Main application
@@ -366,6 +401,68 @@ def main_app():
             "Upload the three input files below. The system will randomly assign "
             "all available BUs and CUs to constituencies."
         )
+                st.markdown("### Download Blank Templates")
+        t1, t2, t3 = st.columns(3)
+
+        with t1:
+            st.download_button(
+                label="Download PS Template",
+                data=dataframe_to_excel_bytes(get_blank_ps_template()),
+                file_name="polling_station_template.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+
+        with t2:
+            st.download_button(
+                label="Download BU Template",
+                data=dataframe_to_excel_bytes(get_blank_bu_template()),
+                file_name="bu_template.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+
+        with t3:
+            st.download_button(
+                label="Download CU Template",
+                data=dataframe_to_excel_bytes(get_blank_cu_template()),
+                file_name="cu_template.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+
+                st.markdown("### EVM Allocation Mode")
+
+        use_all_available = st.checkbox(
+            "Use all available EVMs",
+            value=True,
+            help="If checked, the system behaves exactly as it does now.",
+        )
+
+        evm_percentage = None
+
+        if ps_file and bu_file and cu_file:
+            try:
+                capacity = get_phase1_capacity(ps_file, bu_file, cu_file)
+
+                st.info(
+                    f"Maximum assignable percentage: {capacity['max_percentage']}%  |  "
+                    f"Total Polling Stations: {capacity['total_polling_stations']}  |  "
+                    f"Available BUs: {capacity['available_bus']}  |  "
+                    f"Available CUs: {capacity['available_cus']}  |  "
+                    f"Max usable pairs: {capacity['max_pairs']}"
+                )
+
+                if not use_all_available:
+                    evm_percentage = st.number_input(
+                        "Enter EVM percentage to assign",
+                        min_value=0.01,
+                        max_value=float(capacity["max_percentage"]),
+                        value=float(capacity["max_percentage"]),
+                        step=1.0,
+                    )
+            except Exception as e:
+                st.warning(f"Could not calculate maximum percentage yet: {e}")
 
         with st.expander("Upload Input Files", expanded=True):
             col1, col2, col3 = st.columns(3)
@@ -399,7 +496,12 @@ def main_app():
                     try:
                         seed = random.randint(0, 999999)
                         result_df, summary, frames, warnings = run_phase1(
-                            ps_file, bu_file, cu_file, seed=seed
+                            ps_file,
+                            bu_file,
+                            cu_file,
+                            seed=seed,
+                            use_all_available=use_all_available,
+                            evm_percentage=evm_percentage,
                         )
                         st.session_state["phase1_result"] = result_df
                         st.session_state["phase1_summary"] = summary
