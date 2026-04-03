@@ -431,7 +431,7 @@ def main_app():
                 use_container_width=True,
             )
 
-                st.markdown("### EVM Allocation Mode")
+            st.markdown("### EVM Allocation Mode")
 
         use_all_available = st.checkbox(
             "Use all available EVMs",
