@@ -527,6 +527,16 @@ def main_app():
 
             st.markdown('<div class="section-title">Constituency-wise EVM Summary</div>', unsafe_allow_html=True)
             summary = st.session_state["phase1_summary"]
+            result_df = st.session_state["phase1_result"]
+
+            total_bus_assigned = summary["No. of BUs Assigned"].sum()
+            total_cus_assigned = summary["No. of CUs Assigned"].sum()
+            total_const = len(summary)
+            total_ps_count = summary["No. of Polling Stations"].sum()
+            
+            remaining_bus = max(0, capacity["available_bus"] - total_bus_assigned) if ps_file and bu_file and cu_file else 0
+            remaining_cus = max(0, capacity["available_cus"] - total_cus_assigned) if ps_file and bu_file and cu_file else 0
+            
             st.dataframe(summary, use_container_width=True, hide_index=True)
 
             total_bus = summary["No. of BUs Assigned"].sum()
@@ -534,29 +544,47 @@ def main_app():
             total_const = len(summary)
             total_ps_count = summary["No. of Polling Stations"].sum()
 
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4, col5, col6 = st.columns(6)
+
             with col1:
                 st.markdown(
                     f'<div class="stat-box"><div class="label">Total Constituencies</div>'
                     f'<div class="value">{total_const}</div></div>',
                     unsafe_allow_html=True,
                 )
+            
             with col2:
                 st.markdown(
                     f'<div class="stat-box"><div class="label">Total Polling Stations</div>'
                     f'<div class="value">{total_ps_count}</div></div>',
                     unsafe_allow_html=True,
                 )
+            
             with col3:
                 st.markdown(
                     f'<div class="stat-box"><div class="label">Total BUs Assigned</div>'
-                    f'<div class="value">{total_bus}</div></div>',
+                    f'<div class="value">{total_bus_assigned}</div></div>',
                     unsafe_allow_html=True,
                 )
+            
             with col4:
                 st.markdown(
                     f'<div class="stat-box"><div class="label">Total CUs Assigned</div>'
-                    f'<div class="value">{total_cus}</div></div>',
+                    f'<div class="value">{total_cus_assigned}</div></div>',
+                    unsafe_allow_html=True,
+                )
+            
+            with col5:
+                st.markdown(
+                    f'<div class="stat-box"><div class="label">Remaining BUs</div>'
+                    f'<div class="value">{remaining_bus}</div></div>',
+                    unsafe_allow_html=True,
+                )
+            
+            with col6:
+                st.markdown(
+                    f'<div class="stat-box"><div class="label">Remaining CUs</div>'
+                    f'<div class="value">{remaining_cus}</div></div>',
                     unsafe_allow_html=True,
                 )
 
