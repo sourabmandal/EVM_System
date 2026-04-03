@@ -429,8 +429,19 @@ def _build_phase1_frames(bu_records, cu_records, constituencies, n_snaps=10):
     return frames
 
 
-def get_phase1_excel(result_df: pd.DataFrame) -> bytes:
-    return _to_excel_bytes(result_df)
+def get_phase1_excel(result_df, remaining_bu_df=None, remaining_cu_df=None):
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        result_df.to_excel(writer, index=False, sheet_name="Assigned EVMs")
+
+        if remaining_bu_df is not None and not remaining_bu_df.empty:
+            remaining_bu_df.to_excel(writer, index=False, sheet_name="Remaining BUs")
+
+        if remaining_cu_df is not None and not remaining_cu_df.empty:
+            remaining_cu_df.to_excel(writer, index=False, sheet_name="Remaining CUs")
+
+    return output.getvalue()
 
 
 # ---------------------------------------------------------------------------
