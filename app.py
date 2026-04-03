@@ -396,187 +396,143 @@ def main_app():
                 del st.session_state[key]
             st.rerun()
 
-    # ------------------------------------------------------------------
-    # Phase 1
-    # ------------------------------------------------------------------
-    if page == "Phase 1: Constituency Assignment":
-        st.markdown("## Phase 1: EVM Constituency Randomization")
-        st.markdown(
-            "Upload the three input files below. The system will randomly assign "
-            "all available BUs and CUs to constituencies."
-        )
-        st.markdown("### Download Blank Templates")
-        t1, t2, t3 = st.columns(3)
+# ------------------------------------------------------------------
+# Phase 1
+# ------------------------------------------------------------------
+if page == "Phase 1: Constituency Assignment":
+    st.markdown("## Phase 1: EVM Constituency Randomization")
+    st.markdown(
+        "Upload the three input files below. The system will randomly assign "
+        "all available BUs and CUs to constituencies."
+    )
 
-        with t1:
-            st.download_button(
-                label="Download PS Template",
-                data=dataframe_to_excel_bytes(get_blank_ps_template()),
-                file_name="polling_station_template.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
+    # ----------------------------
+    # Download Templates
+    # ----------------------------
+    st.markdown("### Download Blank Templates")
+    t1, t2, t3 = st.columns(3)
 
-        with t2:
-            st.download_button(
-                label="Download BU Template",
-                data=dataframe_to_excel_bytes(get_blank_bu_template()),
-                file_name="bu_template.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-
-        with t3:
-            st.download_button(
-                label="Download CU Template",
-                data=dataframe_to_excel_bytes(get_blank_cu_template()),
-                file_name="cu_template.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-
-            st.markdown("### EVM Allocation Mode")
-
-        use_all_available = st.checkbox(
-            "Use all available EVMs",
-            value=True,
-            help="If checked, the system behaves exactly as it does now.",
+    with t1:
+        st.download_button(
+            label="Download PS Template",
+            data=dataframe_to_excel_bytes(get_blank_ps_template()),
+            file_name="polling_station_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
         )
 
-        evm_percentage = None
+    with t2:
+        st.download_button(
+            label="Download BU Template",
+            data=dataframe_to_excel_bytes(get_blank_bu_template()),
+            file_name="bu_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
 
-        if ps_file and bu_file and cu_file:
-            try:
-                capacity = get_phase1_capacity(ps_file, bu_file, cu_file)
+    with t3:
+        st.download_button(
+            label="Download CU Template",
+            data=dataframe_to_excel_bytes(get_blank_cu_template()),
+            file_name="cu_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
 
-                st.info(
-                    f"Maximum assignable percentage: {capacity['max_percentage']}%  |  "
-                    f"Total Polling Stations: {capacity['total_polling_stations']}  |  "
-                    f"Available BUs: {capacity['available_bus']}  |  "
-                    f"Available CUs: {capacity['available_cus']}  |  "
-                    f"Max usable pairs: {capacity['max_pairs']}"
+    # ----------------------------
+    # Upload Files (FIXED POSITION)
+    # ----------------------------
+    with st.expander("Upload Input Files", expanded=True):
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown("**Polling Station List**")
+            ps_file = st.file_uploader(
+                "Columns: Slno, RO/ARO's Office, Constituency Name, Polling Station No., Polling Station Name",
+                type=["xlsx", "xls"],
+                key="p1_ps",
+            )
+
+        with col2:
+            st.markdown("**Ballot Unit (BU) Details**")
+            bu_file = st.file_uploader(
+                "Columns: S. No. (Optional), Unit ID, Status, Box No. (Optional)",
+                type=["xlsx", "xls"],
+                key="p1_bu",
+            )
+
+        with col3:
+            st.markdown("**Control Unit (CU) Details**")
+            cu_file = st.file_uploader(
+                "Columns: S. No. (Optional), Unit ID, Status, Box No. (Optional)",
+                type=["xlsx", "xls"],
+                key="p1_cu",
+            )
+
+    # ----------------------------
+    # Allocation Mode
+    # ----------------------------
+    st.markdown("### EVM Allocation Mode")
+
+    use_all_available = st.checkbox(
+        "Use all available EVMs",
+        value=True,
+        help="If checked, the system behaves exactly as it does now.",
+    )
+
+    evm_percentage = None
+
+    # ----------------------------
+    # Capacity calculation (FIXED)
+    # ----------------------------
+    if ps_file and bu_file and cu_file:
+        try:
+            capacity = get_phase1_capacity(ps_file, bu_file, cu_file)
+
+            st.info(
+                f"Maximum assignable percentage: {capacity['max_percentage']}%  |  "
+                f"Total Polling Stations: {capacity['total_polling_stations']}  |  "
+                f"Available BUs: {capacity['available_bus']}  |  "
+                f"Available CUs: {capacity['available_cus']}  |  "
+                f"Max usable pairs: {capacity['max_pairs']}"
+            )
+
+            if not use_all_available:
+                evm_percentage = st.number_input(
+                    "Enter EVM percentage to assign",
+                    min_value=0.01,
+                    max_value=float(capacity["max_percentage"]),
+                    value=float(capacity["max_percentage"]),
+                    step=1.0,
                 )
 
-                if not use_all_available:
-                    evm_percentage = st.number_input(
-                        "Enter EVM percentage to assign",
-                        min_value=0.01,
-                        max_value=float(capacity["max_percentage"]),
-                        value=float(capacity["max_percentage"]),
-                        step=1.0,
+        except Exception as e:
+            st.warning(f"Could not calculate maximum percentage yet: {e}")
+
+    # ----------------------------
+    # Run Button
+    # ----------------------------
+    if st.button("Run Phase 1 Randomization ", use_container_width=True):
+        if not ps_file or not bu_file or not cu_file:
+            st.error("Please upload all three files before running.")
+        else:
+            with st.spinner("Randomizing EVMs across constituencies..."):
+                try:
+                    seed = random.randint(0, 999999)
+                    result_df, summary, frames, warnings = run_phase1(
+                        ps_file,
+                        bu_file,
+                        cu_file,
+                        seed=seed,
+                        use_all_available=use_all_available,
+                        evm_percentage=evm_percentage,
                     )
-            except Exception as e:
-                st.warning(f"Could not calculate maximum percentage yet: {e}")
-
-        with st.expander("Upload Input Files", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.markdown("**Polling Station List**")
-                ps_file = st.file_uploader(
-                    "Columns: Slno, RO/ARO's Office, Constituency Name, Polling Station No., Polling Station Name",
-                    type=["xlsx", "xls"],
-                    key="p1_ps",
-                )
-            with col2:
-                st.markdown("**Ballot Unit (BU) Details**")
-                bu_file = st.file_uploader(
-                    "Columns: S. No. (Optional), Unit ID, Status, Box No. (Optional)",
-                    type=["xlsx", "xls"],
-                    key="p1_bu",
-                )
-            with col3:
-                st.markdown("**Control Unit (CU) Details**")
-                cu_file = st.file_uploader(
-                    "Columns: S. No. (Optional), Unit ID, Status, Box No. (Optional)",
-                    type=["xlsx", "xls"],
-                    key="p1_cu",
-                )
-
-        if st.button("Run Phase 1 Randomization ", use_container_width=True):
-            if not ps_file or not bu_file or not cu_file:
-                st.error("Please upload all three files before running.")
-            else:
-                with st.spinner("Randomizing EVMs across constituencies..."):
-                    try:
-                        seed = random.randint(0, 999999)
-                        result_df, summary, frames, warnings = run_phase1(
-                            ps_file,
-                            bu_file,
-                            cu_file,
-                            seed=seed,
-                            use_all_available=use_all_available,
-                            evm_percentage=evm_percentage,
-                        )
-                        st.session_state["phase1_result"] = result_df
-                        st.session_state["phase1_summary"] = summary
-                        st.session_state["phase1_frames"] = frames
-                        st.session_state["phase1_warnings"] = warnings
-                    except Exception as e:
-                        st.error(f"Error during Phase 1 randomization: {e}")
-
-        # Show results if available
-        if st.session_state["phase1_result"] is not None:
-            warnings = st.session_state["phase1_warnings"] or []
-            for w in warnings:
-                st.markdown(f'<div class="warning-box">Warning: {w}</div>', unsafe_allow_html=True)
-
-            # Animation preview
-            frames = st.session_state["phase1_frames"]
-            if frames:
-                display_phase1_animation(frames)
-
-            # Summary table
-            st.markdown('<div class="section-title">Constituency-wise EVM Summary</div>', unsafe_allow_html=True)
-            summary = st.session_state["phase1_summary"]
-            st.dataframe(summary, use_container_width=True, hide_index=True)
-
-            # Stats
-            total_bus = summary["No. of BUs Assigned"].sum()
-            total_cus = summary["No. of CUs Assigned"].sum()
-            total_const = len(summary)
-
-            total_ps_count = summary["No. of Polling Stations"].sum()
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.markdown(
-                    f'<div class="stat-box"><div class="label">Total Constituencies</div>'
-                    f'<div class="value">{total_const}</div></div>',
-                    unsafe_allow_html=True,
-                )
-            with col2:
-                st.markdown(
-                    f'<div class="stat-box"><div class="label">Total Polling Stations</div>'
-                    f'<div class="value">{total_ps_count}</div></div>',
-                    unsafe_allow_html=True,
-                )
-            with col3:
-                st.markdown(
-                    f'<div class="stat-box"><div class="label">Total BUs Assigned</div>'
-                    f'<div class="value">{total_bus}</div></div>',
-                    unsafe_allow_html=True,
-                )
-            with col4:
-                st.markdown(
-                    f'<div class="stat-box"><div class="label">Total CUs Assigned</div>'
-                    f'<div class="value">{total_cus}</div></div>',
-                    unsafe_allow_html=True,
-                )
-
-            # Full result table
-            st.markdown('<div class="section-title">Full Randomization Output</div>', unsafe_allow_html=True)
-            result_df = st.session_state["phase1_result"]
-            st.dataframe(result_df, use_container_width=True, hide_index=True)
-
-            # Download
-            excel_bytes = get_phase1_excel(result_df)
-            st.download_button(
-                label="Finalize and Download Phase 1 Output (Excel)",
-                data=excel_bytes,
-                file_name="phase1_randomization_output.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-
+                    st.session_state["phase1_result"] = result_df
+                    st.session_state["phase1_summary"] = summary
+                    st.session_state["phase1_frames"] = frames
+                    st.session_state["phase1_warnings"] = warnings
+                except Exception as e:
+                    st.error(f"Error during Phase 1 randomization: {e}")
     # ------------------------------------------------------------------
     # Phase 2
     # ------------------------------------------------------------------
