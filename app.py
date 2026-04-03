@@ -486,7 +486,7 @@ def main_app():
             with col1:
                 st.markdown("**Phase 1 Output File**")
                 p1_out_file = st.file_uploader(
-                    "Columns: EVMSlNo, BU Unit ID, CU Unit ID, RO/ARO's Office, Constituency Name",
+                    "Columns: SlNo, BU Unit ID, CU Unit ID, RO/ARO's Office, Constituency Name",
                     type=["xlsx", "xls"],
                     key="p2_p1out",
                 )
