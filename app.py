@@ -379,14 +379,14 @@ def main_app():
             with col2:
                 st.markdown("**Ballot Unit (BU) Details**")
                 bu_file = st.file_uploader(
-                    "Columns: S. No., Unit ID, Status",
+                    "Columns: S. No. (Optional), Unit ID, Status, Box No. (Optional)",
                     type=["xlsx", "xls"],
                     key="p1_bu",
                 )
             with col3:
                 st.markdown("**Control Unit (CU) Details**")
                 cu_file = st.file_uploader(
-                    "Columns: S. No., Unit ID, Status",
+                    "Columns: S. No. (Optional), Unit ID, Status, Box No. (Optional)",
                     type=["xlsx", "xls"],
                     key="p1_cu",
                 )
