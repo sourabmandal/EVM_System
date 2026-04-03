@@ -263,19 +263,21 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm
 
     # -- Limit usable pool if percentage mode is selected ---------------------
     max_pairs_possible = min(len(bu_records), len(cu_records))
-    max_percentage_possible = (max_pairs_possible / total_ps) * 100
-
+    max_percentage_possible = round((max_pairs_possible / total_ps) * 100, 2)
+    
     if not use_all_available:
         if evm_percentage is None:
             raise ValueError("EVM percentage is required when 'Use all available' is not selected.")
-
+    
+        evm_percentage = round(float(evm_percentage), 2)
+    
         if evm_percentage <= 0:
             raise ValueError("EVM percentage must be greater than 0.")
-
+    
         if evm_percentage > max_percentage_possible:
             raise ValueError(
                 f"Requested percentage ({evm_percentage}%) exceeds maximum possible "
-                f"percentage ({round(max_percentage_possible, 2)}%)."
+                f"percentage ({max_percentage_possible}%)."
             )
 
         bu_records = _cap_records_to_percentage(bu_records, total_ps, evm_percentage)
