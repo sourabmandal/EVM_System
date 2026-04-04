@@ -484,12 +484,14 @@ def main_app():
                 )
 
                 if not use_all_available:
+                    max_percentage_int = int(capacity["max_percentage"])
+                
                     evm_percentage = st.number_input(
                         "Enter EVM percentage to assign",
-                        min_value=0.01,
-                        max_value=float(capacity["max_percentage"]),
-                        value=float(capacity["max_percentage"]),
-                        step=1.0,
+                        min_value=1,
+                        max_value=max_percentage_int,
+                        value=max_percentage_int,
+                        step=1,
                     )
 
             except Exception as e:
