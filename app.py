@@ -569,28 +569,28 @@ def main_app():
             
             with col3:
                 st.markdown(
-                    f'<div class="stat-box"><div class="label">Total BUs Assigned</div>'
+                    f'<div class="stat-box"><div class="label">Total BU Assigned</div>'
                     f'<div class="value">{total_bus_assigned}</div></div>',
                     unsafe_allow_html=True,
                 )
             
             with col4:
                 st.markdown(
-                    f'<div class="stat-box"><div class="label">Total CUs Assigned</div>'
+                    f'<div class="stat-box"><div class="label">Total CU Assigned</div>'
                     f'<div class="value">{total_cus_assigned}</div></div>',
                     unsafe_allow_html=True,
                 )
             
             with col5:
                 st.markdown(
-                    f'<div class="stat-box"><div class="label">Remaining BUs</div>'
+                    f'<div class="stat-box"><div class="label">Remaining BU</div>'
                     f'<div class="value">{remaining_bus}</div></div>',
                     unsafe_allow_html=True,
                 )
             
             with col6:
                 st.markdown(
-                    f'<div class="stat-box"><div class="label">Remaining CUs</div>'
+                    f'<div class="stat-box"><div class="label">Remaining CU</div>'
                     f'<div class="value">{remaining_cus}</div></div>',
                     unsafe_allow_html=True,
                 )
