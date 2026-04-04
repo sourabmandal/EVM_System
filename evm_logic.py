@@ -123,7 +123,7 @@ def get_phase1_capacity(ps_file, bu_file, cu_file):
         "total_polling_stations": int(total_ps),
         "available_bus": int(bu_available_count),
         "available_cus": int(cu_available_count),
-        "max_units": int(max_pairs),
+        "max_units": int(max_units),
         "max_percentage": float(max_percentage),
     }
 
@@ -324,52 +324,43 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm
     bu_assign_df = pd.DataFrame(bu_assignments)
     cu_assign_df = pd.DataFrame(cu_assignments)
 
-    # -- Pair BUs and CUs within each constituency and build result -----------
+
+    # -- Assign BUs and CUs independently (NO PAIRING) -------------------------
     result_rows = []
     evm_sl = 1
-
+    
     for const_name in constituencies:
         ro_office = constituency_info.loc[
             constituency_info["Constituency Name"] == const_name,
             "RO/ARO's Office"
         ].values[0]
-
+    
         bu_const = bu_assign_df[bu_assign_df["Constituency Name"] == const_name].reset_index(drop=True)
         cu_const = cu_assign_df[cu_assign_df["Constituency Name"] == const_name].reset_index(drop=True)
-
-
+    
         if len(bu_const) != len(cu_const):
             warnings.append(
-                f"Constituency '{const_name}': BU count ({len(bu_const)}) is not equal to the "
-                f"CU count ({len(cu_const)})."
+                f"Constituency '{const_name}': BU count ({len(bu_const)}) != CU count ({len(cu_const)})."
             )
-
-        # Determine number of assignments
-        if use_all_available:
-            n_assign = max(len(bu_const), len(cu_const))
-        else:
-            n_assign = int((evm_percentage / 100) * ps_count)
-        
-        for i in range(n_assign):
-            bu_id = bu_const[i]["Unit ID"] if i < len(bu_const) else None
-            cu_id = cu_const[i]["Unit ID"] if i < len(cu_const) else None
-        
+    
+        # KEY FIX → use max, not min
+        n_rows = max(len(bu_const), len(cu_const))
+    
+        for i in range(n_rows):
             row = {
-                "SlNo": running_sl_no,
-                "BU Unit ID": bu_id,
-                "CU Unit ID": cu_id,
-                "RO/ARO's Office": const_name,
+                "SlNo": evm_sl,
+                "RO/ARO's Office": ro_office,
                 "Constituency Name": const_name,
+                "BU Unit ID": bu_const.at[i, "BU Unit ID"] if i < len(bu_const) else None,
+                "CU Unit ID": cu_const.at[i, "CU Unit ID"] if i < len(cu_const) else None,
             }
-        
-            rows.append(row)
-            running_sl_no += 1
-
+    
             if "BU Box No." in bu_const.columns:
-                row["BU Box No."] = bu_const.at[i, "BU Box No."]
+                row["BU Box No."] = bu_const.at[i, "BU Box No."] if i < len(bu_const) else None
+    
             if "CU Box No." in cu_const.columns:
-                row["CU Box No."] = cu_const.at[i, "CU Box No."]
-
+                row["CU Box No."] = cu_const.at[i, "CU Box No."] if i < len(cu_const) else None
+    
             result_rows.append(row)
             evm_sl += 1
 
@@ -393,17 +384,20 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm
     for const_name in constituencies:
         sub = result_df[result_df["Constituency Name"] == const_name]
         ps_count = int(ps_counts[const_name])
-        assigned_count = len(sub)
-        assigned_pct = round((assigned_count / ps_count) * 100, 2) if ps_count else 0
-
+    
+        bu_assigned = sub["BU Unit ID"].notna().sum() if not sub.empty else 0
+        cu_assigned = sub["CU Unit ID"].notna().sum() if not sub.empty else 0
+        assigned_pct = round((max(bu_assigned, cu_assigned) / ps_count) * 100, 2) if ps_count else 0
+    
         summary_rows.append({
             "Constituency Name": const_name,
             "RO/ARO's Office": sub["RO/ARO's Office"].iloc[0] if not sub.empty else "",
             "No. of Polling Stations": ps_count,
-            "No. of BUs Assigned": assigned_count,
-            "No. of CUs Assigned": assigned_count,
+            "No. of BUs Assigned": int(bu_assigned),
+            "No. of CUs Assigned": int(cu_assigned),
             "Assigned EVM vs PS (%)": assigned_pct,
         })
+    
     constituency_summary = pd.DataFrame(summary_rows)
 
     # -- Animation frames (preview only) -------------------------------------
