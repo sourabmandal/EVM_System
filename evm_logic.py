@@ -116,14 +116,14 @@ def get_phase1_capacity(ps_file, bu_file, cu_file):
     if total_ps == 0:
         raise ValueError("Total polling station count is zero.")
 
-    max_pairs = min(bu_available_count, cu_available_count)
-    max_percentage = round((max_pairs / total_ps) * 100, 2)
+    max_units = max(bu_available_count, cu_available_count)
+    max_percentage = round((max_units / total_ps) * 100, 2)
 
     return {
         "total_polling_stations": int(total_ps),
         "available_bus": int(bu_available_count),
         "available_cus": int(cu_available_count),
-        "max_pairs": int(max_pairs),
+        "max_units": int(max_pairs),
         "max_percentage": float(max_percentage),
     }
 
@@ -262,8 +262,8 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm
         raise ValueError("Total polling station count is zero. Cannot compute ratios.")
 
     # -- Limit usable pool if percentage mode is selected ---------------------
-    max_pairs_possible = min(len(bu_records), len(cu_records))
-    max_percentage_possible = round((max_pairs_possible / total_ps) * 100, 2)
+    max_units_possible = max(len(bu_records), len(cu_records))
+    max_percentage_possible = (max_units_possible / total_ps) * 100
     
     if not use_all_available:
         if evm_percentage is None:
@@ -337,22 +337,33 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm
         bu_const = bu_assign_df[bu_assign_df["Constituency Name"] == const_name].reset_index(drop=True)
         cu_const = cu_assign_df[cu_assign_df["Constituency Name"] == const_name].reset_index(drop=True)
 
-        n_pairs = min(len(bu_const), len(cu_const))
 
         if len(bu_const) != len(cu_const):
             warnings.append(
-                f"Constituency '{const_name}': BU count ({len(bu_const)}) != "
-                f"CU count ({len(cu_const)}). Only {n_pairs} pairs created."
+                f"Constituency '{const_name}': BU count ({len(bu_const)}) is not equal to the "
+                f"CU count ({len(cu_const)})."
             )
 
-        for i in range(n_pairs):
+        # Determine number of assignments
+        if use_all_available:
+            n_assign = max(len(bu_const), len(cu_const))
+        else:
+            n_assign = int((evm_percentage / 100) * ps_count)
+        
+        for i in range(n_assign):
+            bu_id = bu_const[i]["Unit ID"] if i < len(bu_const) else None
+            cu_id = cu_const[i]["Unit ID"] if i < len(cu_const) else None
+        
             row = {
-                "SlNo": evm_sl,
-                "BU Unit ID": bu_const.at[i, "BU Unit ID"],
-                "CU Unit ID": cu_const.at[i, "CU Unit ID"],
-                "RO/ARO's Office": ro_office,
+                "SlNo": running_sl_no,
+                "BU Unit ID": bu_id,
+                "CU Unit ID": cu_id,
+                "RO/ARO's Office": const_name,
                 "Constituency Name": const_name,
             }
+        
+            rows.append(row)
+            running_sl_no += 1
 
             if "BU Box No." in bu_const.columns:
                 row["BU Box No."] = bu_const.at[i, "BU Box No."]
