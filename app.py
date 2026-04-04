@@ -480,7 +480,7 @@ def main_app():
                     f"Total Polling Stations: {capacity['total_polling_stations']}  |  "
                     f"Available BUs: {capacity['available_bus']}  |  "
                     f"Available CUs: {capacity['available_cus']}  |  "
-                    f"Max usable pairs: {capacity['max_pairs']}"
+                    f"Max usable units: {capacity['max_pairs']}"
                 )
 
                 if not use_all_available:
