@@ -480,8 +480,7 @@ def main_app():
                     f"Maximum assignable percentage: {max_percentage_int}%  |  "
                     f"Total Polling Stations: {capacity['total_polling_stations']}  |  "
                     f"Available BUs: {capacity['available_bus']}  |  "
-                    f"Available CUs: {capacity['available_cus']}  |  "
-                    f"Max usable units: {capacity['max_units']}"
+                    f"Available CUs: {capacity['available_cus']} "
                 )
 
                 if not use_all_available:
