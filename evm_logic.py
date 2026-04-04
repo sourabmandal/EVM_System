@@ -263,7 +263,7 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm
 
     # -- Limit usable pool if percentage mode is selected ---------------------
     max_units_possible = max(len(bu_records), len(cu_records))
-    max_percentage_possible = (max_units_possible / total_ps) * 100
+    max_percentage_possible = int((max_units_possible / total_ps) * 100)
     
     if not use_all_available:
         if evm_percentage is None:
