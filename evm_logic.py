@@ -123,7 +123,7 @@ def get_phase1_capacity(ps_file, bu_file, cu_file):
         "total_polling_stations": int(total_ps),
         "available_bus": int(bu_available_count),
         "available_cus": int(cu_available_count),
-        "max_units": int(max_units),
+        "max_units": int(max_pairs),
         "max_percentage": float(max_percentage),
     }
 
