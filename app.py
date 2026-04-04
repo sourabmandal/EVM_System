@@ -474,9 +474,10 @@ def main_app():
         if ps_file and bu_file and cu_file:
             try:
                 capacity = get_phase1_capacity(ps_file, bu_file, cu_file)
-
+                
+                max_percentage_int = int(capacity["max_percentage"])
                 st.info(
-                    f"Maximum assignable percentage: {capacity['max_percentage']}%  |  "
+                    f"Maximum assignable percentage: {max_percentage_int}%  |  "
                     f"Total Polling Stations: {capacity['total_polling_stations']}  |  "
                     f"Available BUs: {capacity['available_bus']}  |  "
                     f"Available CUs: {capacity['available_cus']}  |  "
