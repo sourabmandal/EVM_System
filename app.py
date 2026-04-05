@@ -702,12 +702,19 @@ def main_app():
                     unsafe_allow_html=True,
                 )
 
+            total_ps = int(reserved_summary["No. of Polling Stations"].sum()) if not reserved_summary.empty else 0
             total_assigned_bu = int(assigned_df["BU Unit ID"].notna().sum()) if "BU Unit ID" in assigned_df.columns else 0
             total_assigned_cu = int(assigned_df["CU Unit ID"].notna().sum()) if "CU Unit ID" in assigned_df.columns else 0
             total_reserved_bu = int(reserved_df["BU Unit ID"].notna().sum()) if "BU Unit ID" in reserved_df.columns else 0
             total_reserved_cu = int(reserved_df["CU Unit ID"].notna().sum()) if "CU Unit ID" in reserved_df.columns else 0
 
-            col1, col2, col3, col4 = st.columns(4)
+            col0, col1, col2, col3, col4 = st.columns(5)
+            with col0:
+                st.markdown(
+                    f'<div class="stat-box"><div class="label">Total Polling Stations</div>'
+                    f'<div class="value">{total_ps}</div></div>',
+                    unsafe_allow_html=True,
+                )
             with col1:
                 st.markdown(
                     f'<div class="stat-box"><div class="label">Total Assigned BU</div>'
