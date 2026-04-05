@@ -464,7 +464,8 @@ def run_phase2(phase1_file, ps_file, seed=None):
     assigned_rows = []
     reserved_rows = []
     animation_frames = []
-    new_sl = 1
+    assigned_sl = 1
+    reserved_sl = 1
 
     for const_name in constituencies:
         evm_sub = phase1_df[phase1_df["Constituency Name"] == const_name].copy().reset_index(drop=True)
@@ -527,7 +528,7 @@ def run_phase2(phase1_file, ps_file, seed=None):
 
         for i in range(n_assign):
             row = {
-                "SlNo": new_sl,
+                "SlNo": assigned_sl,
                 "BU Unit ID": bu_records[i]["BU Unit ID"],
                 "CU Unit ID": cu_records[i]["CU Unit ID"],
                 "RO/ARO's Office": ro_office,
@@ -540,11 +541,11 @@ def run_phase2(phase1_file, ps_file, seed=None):
             if has_cu_box:
                 row["CU Box No."] = cu_records[i].get("CU Box No.")
             assigned_rows.append(row)
-            new_sl += 1
+            assigned_sl += 1
 
         for i in range(n_assign, n_bu):
             row = {
-                "SlNo": new_sl,
+                "SlNo": reserved_sl,
                 "BU Unit ID": bu_records[i]["BU Unit ID"],
                 "CU Unit ID": None,
                 "RO/ARO's Office": ro_office,
@@ -557,11 +558,11 @@ def run_phase2(phase1_file, ps_file, seed=None):
             if has_cu_box:
                 row["CU Box No."] = None
             reserved_rows.append(row)
-            new_sl += 1
+            reserved_sl += 1
 
         for i in range(n_assign, n_cu):
             row = {
-                "SlNo": new_sl,
+                "SlNo": reserved_sl,
                 "BU Unit ID": None,
                 "CU Unit ID": cu_records[i]["CU Unit ID"],
                 "RO/ARO's Office": ro_office,
@@ -574,7 +575,7 @@ def run_phase2(phase1_file, ps_file, seed=None):
             if has_cu_box:
                 row["CU Box No."] = cu_records[i].get("CU Box No.")
             reserved_rows.append(row)
-            new_sl += 1
+            reserved_sl += 1
 
     output_cols = ["SlNo", "BU Unit ID"]
     if has_bu_box:
