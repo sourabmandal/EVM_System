@@ -523,8 +523,12 @@ def run_phase2(phase1_file, ps_file, seed=None):
         bu_cols = ["BU Unit ID"] + (["BU Box No."] if has_bu_box else [])
         cu_cols = ["CU Unit ID"] + (["CU Box No."] if has_cu_box else [])
 
-        bu_records = evm_sub[bu_cols].to_dict(orient="records")
-        cu_records = evm_sub[cu_cols].to_dict(orient="records")
+        valid_bu_mask = evm_sub["BU Unit ID"].notna() & (evm_sub["BU Unit ID"].astype(str).str.strip() != "")
+        valid_cu_mask = evm_sub["CU Unit ID"].notna() & (evm_sub["CU Unit ID"].astype(str).str.strip() != "")
+        
+        bu_records = evm_sub.loc[valid_bu_mask, bu_cols].to_dict(orient="records")
+        cu_records = evm_sub.loc[valid_cu_mask, cu_cols].to_dict(orient="records")
+
 
         random.shuffle(bu_records)
         random.shuffle(cu_records)
