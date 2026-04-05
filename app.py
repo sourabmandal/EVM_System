@@ -705,8 +705,8 @@ def main_app():
             total_ps = int(reserved_summary["No. of Polling Stations"].sum()) if not reserved_summary.empty else 0
             total_assigned_bu = int(assigned_df["BU Unit ID"].notna().sum()) if "BU Unit ID" in assigned_df.columns else 0
             total_assigned_cu = int(assigned_df["CU Unit ID"].notna().sum()) if "CU Unit ID" in assigned_df.columns else 0
-            total_reserved_bu = int(reserved_df["BU Unit ID"].notna().sum()) if "BU Unit ID" in reserved_df.columns else 0
-            total_reserved_cu = int(reserved_df["CU Unit ID"].notna().sum()) if "CU Unit ID" in reserved_df.columns else 0
+            total_reserved_bu = int(reserved_summary["Reserved BU"].sum()) if "Reserved BU" in reserved_summary.columns else 0
+            total_reserved_cu = int(reserved_summary["Reserved CU"].sum()) if "Reserved CU" in reserved_summary.columns else 0
 
             col0, col1, col2, col3, col4 = st.columns(5)
             with col0:
