@@ -550,7 +550,7 @@ def run_phase2(phase1_file, ps_file, seed=None):
             )
         if n_total_evms > n_ps:
             warnings.append(
-                f"Constituency '{const_name}': More EVM pairs ({n_total_evms}) "
+                f"Constituency '{const_name}': More BU-CU pairs ({n_total_evms}) "
                 f"than polling stations ({n_ps}). {n_total_evms - n_ps} EVMs will be reserved."
             )
 
