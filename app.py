@@ -39,30 +39,41 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-/* 🔹 Hide top toolbar (Fork + GitHub) */
-div[data-testid="stToolbar"] {
+/* 🔴 Hide Fork button specifically */
+a[href*="fork"] {
     display: none !important;
 }
 
-/* ❌ DO NOT hide hamburger menu (⋮) */
-/* button[kind="header"] { display: none !important; } */
+/* 🔴 Hide GitHub icon */
+a[href*="github"] {
+    display: none !important;
+}
 
-/* 🔹 Hide footer ("Made with Streamlit") */
+/* 🔴 Hide top-right buttons container (except menu) */
+div[data-testid="stToolbar"] > *:not(button) {
+    display: none !important;
+}
+
+/* ✅ Keep the three-dot menu */
+button[kind="header"] {
+    display: block !important;
+}
+
+/* 🔹 Hide footer */
 footer {
     visibility: hidden !important;
 }
 
-/* 🔹 Hide deploy badge / bottom right icon */
+/* 🔹 Hide bottom deploy badge */
 div[data-testid="stDecoration"] {
     display: none !important;
 }
 
-/* 🔹 Hide top blank header space */
+/* 🔹 Reduce top space */
 header {
     visibility: hidden !important;
 }
 
-/* 🔹 Adjust spacing */
 .block-container {
     padding-top: 1rem !important;
 }
