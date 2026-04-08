@@ -211,7 +211,7 @@ for key in [
     "phase1_result", "phase1_summary", "phase1_frames", "phase1_warnings",
     "phase1_remaining_bu", "phase1_remaining_cu", "phase1_finalized", "phase1_randomization_date",
     "phase2_assigned", "phase2_reserved", "phase2_summary", "phase2_frames", "phase2_warnings",
-    "phase2_finalized", "phase2_randomization_date"
+    "phase2_finalized", "phase2_randomization_date", "phase2_selected_ro", "phase2_selected_constituencies", "phase2_ro_label", "phase2_constituency_label",
 ]:
     if key not in st.session_state:
         st.session_state[key] = None
@@ -722,6 +722,46 @@ def main_app():
                     key="p2_ps",
                 )
 
+        selected_ro_offices = None
+        selected_constituencies = None
+
+        if p1_out_file and ps2_file:
+            try:
+                p1_preview = pd.read_excel(p1_out_file)
+                ps_preview = pd.read_excel(ps2_file)
+
+                common_ro = sorted(
+                    set(p1_preview["RO/ARO's Office"].dropna().astype(str).str.strip()) &
+                    set(ps_preview["RO/ARO's Office"].dropna().astype(str).str.strip())
+                )
+                common_const = sorted(
+                    set(p1_preview["Constituency Name"].dropna().astype(str).str.strip()) &
+                    set(ps_preview["Constituency Name"].dropna().astype(str).str.strip())
+                )
+
+                if len(common_ro) > 1:
+                    selected_ro_offices = st.multiselect(
+                        "Select RO Office(s) to randomize",
+                        options=common_ro,
+                        default=st.session_state.get("phase2_selected_ro") or [],
+                        key="phase2_selected_ro",
+                    )
+                elif len(common_ro) == 1:
+                    selected_ro_offices = common_ro
+
+                if len(common_const) > 1:
+                    selected_constituencies = st.multiselect(
+                        "Select Constituency / Constituencies to randomize",
+                        options=common_const,
+                        default=st.session_state.get("phase2_selected_constituencies") or [],
+                        key="phase2_selected_constituencies",
+                    )
+                elif len(common_const) == 1:
+                    selected_constituencies = common_const
+
+            except Exception as e:
+                st.warning(f"Could not prepare RO/Constituency selector: {e}")
+
         if st.button("Run Phase 2 Randomization", use_container_width=True):
             if not p1_out_file or not ps2_file:
                 st.error("Please upload both files before running.")
@@ -729,8 +769,14 @@ def main_app():
                 with st.spinner("Assigning polling stations to EVMs..."):
                     try:
                         seed = random.randint(0, 999999)
+                        p1_out_file.seek(0)
+                        ps2_file.seek(0)
                         assigned_df, reserved_df, reserved_summary, anim_frames, warnings = run_phase2(
-                            p1_out_file, ps2_file, seed=seed
+                            p1_out_file,
+                            ps2_file,
+                            seed=seed,
+                            selected_ro_offices=selected_ro_offices,
+                            selected_constituencies=selected_constituencies,
                         )
                         st.session_state["phase2_assigned"] = assigned_df
                         st.session_state["phase2_reserved"] = reserved_df
@@ -739,6 +785,8 @@ def main_app():
                         st.session_state["phase2_warnings"] = warnings
                         st.session_state["phase2_finalized"] = False
                         st.session_state["phase2_randomization_date"] = datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%d-%m-%Y %H:%M:%S")
+                        st.session_state["phase2_ro_label"] = ", ".join(selected_ro_offices) if selected_ro_offices else "All"
+                        st.session_state["phase2_constituency_label"] = ", ".join(selected_constituencies) if selected_constituencies else "All"
                     except Exception as e:
                         st.error(f"Error during Phase 2 randomization: {e}")
 
@@ -819,6 +867,8 @@ def main_app():
                     assigned_df,
                     reserved_df,
                     randomization_date=st.session_state.get("phase2_randomization_date", ""),
+                    constituency_label=st.session_state.get("phase2_constituency_label"),
+                    ro_office_label=st.session_state.get("phase2_ro_label"),
                 )
 
                 d1, d2 = st.columns(2)
