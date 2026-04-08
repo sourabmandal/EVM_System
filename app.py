@@ -780,16 +780,6 @@ def main_app():
                 else:
                     selected_constituencies = []
 
-                if len(common_ro) > 1:
-                    selected_ro_offices = st.multiselect(
-                        "Select RO Office(s) to randomize",
-                        options=common_ro,
-                        default=st.session_state.get("phase2_selected_ro") or [],
-                        key="phase2_selected_ro",
-                    )
-                elif len(common_ro) == 1:
-                    selected_ro_offices = common_ro
-
                 if len(common_const) > 1:
                     selected_constituencies = st.multiselect(
                         "Select Constituency / Constituencies to randomize",
