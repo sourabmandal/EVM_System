@@ -364,21 +364,23 @@ def get_blank_ps_template():
 
 
 def get_blank_bu_template():
-    return pd.DataFrame(columns=[
-        "S. No.",
-        "Unit ID",
-        "Status",
-        "Box No.",
-    ])
+    df = pd.DataFrame({
+        "S. No.": [1, 2],
+        "Unit ID": ["", ""],
+        "Status": ["Available for use", "Rejected"],
+        "Box No.": ["", ""],
+    })
+    return df
 
 
 def get_blank_cu_template():
-    return pd.DataFrame(columns=[
-        "S. No.",
-        "Unit ID",
-        "Status",
-        "Box No.",
-    ])
+    df = pd.DataFrame({
+        "S. No.": [1, 2],
+        "Unit ID": ["", ""],
+        "Status": ["Available for use", "Rejected"],
+        "Box No.": ["", ""],
+    })
+    return df
 
 
 def dataframe_to_excel_bytes(df: pd.DataFrame) -> bytes:
