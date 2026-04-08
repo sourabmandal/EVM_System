@@ -316,14 +316,20 @@ def captcha_page():
                     valid_pass = password == st.secrets["APP_PASSWORD"]
                     valid_captcha = int(user_ans) == a + b
 
-                    if valid_user and valid_pass and valid_captcha:
+                    errors = []
+
+                    if not valid_user:
+                        errors.append("User ID")
+                    if not valid_pass:
+                        errors.append("Password")
+                    if not valid_captcha:
+                        errors.append("CAPTCHA")
+                    
+                    if not errors:
                         st.session_state["authenticated"] = True
                         st.rerun()
                     else:
-                        if not valid_user or not valid_pass:
-                            st.error("Incorrect User ID or Password.")
-                        else:
-                            st.error("Incorrect Captcha.")
+                        st.error("Incorrect: " + ", ".join(errors))
                         st.session_state["refresh_captcha"] = True
                         st.rerun()
                 except ValueError:
