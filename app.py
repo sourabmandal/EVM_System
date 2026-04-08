@@ -780,16 +780,6 @@ def main_app():
                 else:
                     selected_constituencies = []
 
-                if len(common_const) > 1:
-                    selected_constituencies = st.multiselect(
-                        "Select Constituency / Constituencies to randomize",
-                        options=common_const,
-                        default=st.session_state.get("phase2_selected_constituencies") or [],
-                        key="phase2_selected_constituencies",
-                    )
-                elif len(common_const) == 1:
-                    selected_constituencies = common_const
-
             except Exception as e:
                 st.warning(f"Could not prepare RO/Constituency selector: {e}")
 
