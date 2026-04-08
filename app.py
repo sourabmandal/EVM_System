@@ -423,7 +423,7 @@ def main_app():
             unsafe_allow_html=True,
         )
         st.markdown("---")
-        if st.button("Logout / Reset Session"):
+        if st.button("Logout"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.session_state["authenticated"] = False
