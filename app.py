@@ -69,11 +69,6 @@ div[data-testid="stDecoration"] {
     display: none !important;
 }
 
-/* 🔹 Reduce top space */
-header {
-    visibility: hidden !important;
-}
-
 .block-container {
     padding-top: 1rem !important;
 }
