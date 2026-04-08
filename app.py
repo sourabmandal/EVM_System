@@ -39,36 +39,38 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-/* 🔴 Hide Fork button specifically */
+/* Hide Fork button specifically */
 a[href*="fork"] {
     display: none !important;
 }
 
-/* 🔴 Hide GitHub icon */
+/* Hide GitHub icon */
 a[href*="github"] {
     display: none !important;
 }
 
-/* 🔴 Hide top-right buttons container (except menu) */
-div[data-testid="stToolbar"] > *:not(button) {
-    display: none !important;
+/* Keep header visible so sidebar/menu can be opened again */
+header {
+    visibility: visible !important;
 }
 
-/* ✅ Keep the three-dot menu */
+/* Keep the top-right menu button visible */
 button[kind="header"] {
     display: block !important;
+    visibility: visible !important;
 }
 
-/* 🔹 Hide footer */
+/* Hide footer */
 footer {
     visibility: hidden !important;
 }
 
-/* 🔹 Hide bottom deploy badge */
+/* Hide bottom deploy badge */
 div[data-testid="stDecoration"] {
     display: none !important;
 }
 
+/* Slightly reduce top spacing without breaking header/menu */
 .block-container {
     padding-top: 1rem !important;
 }
