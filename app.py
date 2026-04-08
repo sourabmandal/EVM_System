@@ -199,8 +199,8 @@ div[data-testid="stDataFrame"] {
 # Session state defaults
 # ---------------------------------------------------------------------------
 
-if "captcha_verified" not in st.session_state:
-    st.session_state["captcha_verified"] = False
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
 
 for key in [
     "phase1_result", "phase1_summary", "phase1_frames", "phase1_warnings",
@@ -280,7 +280,7 @@ def captcha_page():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("### Verify Access")
-        st.markdown("Please complete the CAPTCHA to proceed.")
+        st.markdown("Please enter User ID, Password, and complete the CAPTCHA to proceed.")
 
         if "captcha_a" not in st.session_state or st.session_state.get("refresh_captcha"):
             a = random.randint(10, 99)
@@ -291,6 +291,9 @@ def captcha_page():
 
         a = st.session_state["captcha_a"]
         b = st.session_state["captcha_b"]
+
+        user_id = st.text_input("User ID", key="login_user_id")
+        password = st.text_input("Password", type="password", key="login_password")
 
         st.markdown(
             f"""
@@ -303,21 +306,25 @@ def captcha_page():
             unsafe_allow_html=True,
         )
 
-        user_ans = st.text_input("Enter the answer", key="captcha_input", placeholder="Type your answer here")
+        user_ans = st.text_input("Enter CAPTCHA answer", key="captcha_input", placeholder="Type your answer here")
 
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("Verify", use_container_width=True):
+            if st.button("Login", use_container_width=True):
                 try:
-                    if int(user_ans) == a + b:
-                        st.session_state["captcha_verified"] = True
+                    valid_user = user_id == st.secrets["APP_USER_ID"]
+                    valid_pass = password == st.secrets["APP_PASSWORD"]
+                    valid_captcha = int(user_ans) == a + b
+
+                    if valid_user and valid_pass and valid_captcha:
+                        st.session_state["authenticated"] = True
                         st.rerun()
                     else:
-                        st.error("Incorrect answer. Please try again.")
+                        st.error("Invalid User ID, Password, or CAPTCHA.")
                         st.session_state["refresh_captcha"] = True
                         st.rerun()
                 except ValueError:
-                    st.error("Please enter a valid number.")
+                    st.error("Please enter a valid CAPTCHA answer.")
         with c2:
             if st.button("Refresh CAPTCHA", use_container_width=True):
                 st.session_state["refresh_captcha"] = True
@@ -392,6 +399,7 @@ def main_app():
         if st.button("Logout / Reset Session"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
+            st.session_state["authenticated"] = False
             st.rerun()
 
     # ------------------------------------------------------------------
@@ -764,7 +772,7 @@ def main_app():
 # Entry point
 # ---------------------------------------------------------------------------
 
-if st.session_state["captcha_verified"] is True:
+if st.session_state["authenticated"] is True:
     main_app()
 else:
     captcha_page()
