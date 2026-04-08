@@ -733,14 +733,52 @@ def main_app():
                 p1_preview = pd.read_excel(p1_out_file)
                 ps_preview = pd.read_excel(ps2_file)
 
+                p1_preview["RO/ARO's Office"] = p1_preview["RO/ARO's Office"].astype(str).str.strip()
+                p1_preview["Constituency Name"] = p1_preview["Constituency Name"].astype(str).str.strip()
+                
+                ps_preview["RO/ARO's Office"] = ps_preview["RO/ARO's Office"].astype(str).str.strip()
+                ps_preview["Constituency Name"] = ps_preview["Constituency Name"].astype(str).str.strip()
+                
                 common_ro = sorted(
-                    set(p1_preview["RO/ARO's Office"].dropna().astype(str).str.strip()) &
-                    set(ps_preview["RO/ARO's Office"].dropna().astype(str).str.strip())
+                    set(p1_preview["RO/ARO's Office"].dropna()) &
+                    set(ps_preview["RO/ARO's Office"].dropna())
                 )
+                
+                if len(common_ro) > 1:
+                    selected_ro_offices = st.multiselect(
+                        "Select RO Office(s) to randomize",
+                        options=common_ro,
+                        default=st.session_state.get("phase2_selected_ro", []),
+                        key="phase2_selected_ro",
+                    )
+                elif len(common_ro) == 1:
+                    selected_ro_offices = common_ro
+                else:
+                    selected_ro_offices = []
+                
+                if selected_ro_offices:
+                    p1_const_filtered = p1_preview[p1_preview["RO/ARO's Office"].isin(selected_ro_offices)]
+                    ps_const_filtered = ps_preview[ps_preview["RO/ARO's Office"].isin(selected_ro_offices)]
+                else:
+                    p1_const_filtered = p1_preview
+                    ps_const_filtered = ps_preview
+                
                 common_const = sorted(
-                    set(p1_preview["Constituency Name"].dropna().astype(str).str.strip()) &
-                    set(ps_preview["Constituency Name"].dropna().astype(str).str.strip())
+                    set(p1_const_filtered["Constituency Name"].dropna()) &
+                    set(ps_const_filtered["Constituency Name"].dropna())
                 )
+                
+                if len(common_const) > 1:
+                    selected_constituencies = st.multiselect(
+                        "Select Constituency / Constituencies to randomize",
+                        options=common_const,
+                        default=st.session_state.get("phase2_selected_constituencies", []),
+                        key="phase2_selected_constituencies",
+                    )
+                elif len(common_const) == 1:
+                    selected_constituencies = common_const
+                else:
+                    selected_constituencies = []
 
                 if len(common_ro) > 1:
                     selected_ro_offices = st.multiselect(
