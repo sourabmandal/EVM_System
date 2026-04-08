@@ -562,7 +562,7 @@ def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, random
 # Phase 2
 # ---------------------------------------------------------------------------
 
-def run_phase2(phase1_file, ps_file, seed=None):
+def run_phase2(phase1_file, ps_file, seed=None, selected_ro_offices=None, selected_constituencies=None):
     """Run Phase 2 randomization with separate BU/CU reserved counts."""
     if seed is not None:
         random.seed(seed)
@@ -571,6 +571,17 @@ def run_phase2(phase1_file, ps_file, seed=None):
 
     phase1_df = _read_excel(phase1_file)
     ps_df = _read_excel(ps_file)
+
+    if selected_ro_offices:
+        phase1_df = phase1_df[phase1_df["RO/ARO's Office"].isin(selected_ro_offices)].copy()
+        ps_df = ps_df[ps_df["RO/ARO's Office"].isin(selected_ro_offices)].copy()
+
+    if selected_constituencies:
+        phase1_df = phase1_df[phase1_df["Constituency Name"].isin(selected_constituencies)].copy()
+        ps_df = ps_df[ps_df["Constituency Name"].isin(selected_constituencies)].copy()
+
+    if phase1_df.empty or ps_df.empty:
+        raise ValueError("No data found for the selected RO Office / Constituency.")
 
     required_p1 = {"SlNo", "BU Unit ID", "CU Unit ID", "RO/ARO's Office", "Constituency Name"}
     required_ps = {"RO/ARO's Office", "Constituency Name", "Polling Station No.", "Polling Station Name"}
@@ -791,10 +802,23 @@ def get_phase2_excel(assigned_df: pd.DataFrame, reserved_df: pd.DataFrame) -> by
         reserved_df.to_excel(writer, sheet_name="Reserved", index=False)
     return buf.getvalue()
 
-def get_phase2_pdf(assigned_df: pd.DataFrame, reserved_df: pd.DataFrame, randomization_date="") -> bytes:
+def get_phase2_pdf(
+    assigned_df: pd.DataFrame,
+    reserved_df: pd.DataFrame,
+    randomization_date="",
+    constituency_label=None,
+    ro_office_label=None,
+) -> bytes:
     buf = BytesIO()
 
-    constituency, ro_office = _get_pdf_meta(assigned_df if assigned_df is not None and not assigned_df.empty else reserved_df)
+    constituency, ro_office = _get_pdf_meta(
+        assigned_df if assigned_df is not None and not assigned_df.empty else reserved_df
+    )
+
+    if constituency_label is not None:
+        constituency = constituency_label
+    if ro_office_label is not None:
+        ro_office = ro_office_label
 
     doc = SimpleDocTemplate(
         buf,
