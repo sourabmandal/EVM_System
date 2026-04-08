@@ -325,10 +325,8 @@ def captcha_page():
 
                     errors = []
 
-                    if not valid_user:
-                        errors.append("User ID")
-                    if not valid_pass:
-                        errors.append("Password")
+                    if not valid_user or not valid_pass:
+                        errors.append("User ID and/or password")
                     if not valid_captcha:
                         errors.append("CAPTCHA")
                     
