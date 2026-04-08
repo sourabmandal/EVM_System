@@ -31,9 +31,44 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
 # ---------------------------------------------------------------------------
 # Custom CSS
 # ---------------------------------------------------------------------------
+
+st.markdown("""
+<style>
+
+/* 🔹 Hide top toolbar (Fork + GitHub) */
+div[data-testid="stToolbar"] {
+    display: none !important;
+}
+
+/* ❌ DO NOT hide hamburger menu (⋮) */
+/* button[kind="header"] { display: none !important; } */
+
+/* 🔹 Hide footer ("Made with Streamlit") */
+footer {
+    visibility: hidden !important;
+}
+
+/* 🔹 Hide deploy badge / bottom right icon */
+div[data-testid="stDecoration"] {
+    display: none !important;
+}
+
+/* 🔹 Hide top blank header space */
+header {
+    visibility: hidden !important;
+}
+
+/* 🔹 Adjust spacing */
+.block-container {
+    padding-top: 1rem !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <style>
