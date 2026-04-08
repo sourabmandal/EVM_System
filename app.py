@@ -365,20 +365,20 @@ def get_blank_ps_template():
 
 def get_blank_bu_template():
     df = pd.DataFrame({
-        "S. No.": [1, 2],
-        "Unit ID": ["", ""],
-        "Status": ["Available for use", "Rejected"],
-        "Box No.": ["", ""],
+        "S. No.": [1, 2, 3],
+        "Unit ID": ["", "", ""],
+        "Status": ["Available for use", "Rejected", "Training"],
+        "Box No.": ["", "", ""],
     })
     return df
 
 
 def get_blank_cu_template():
     df = pd.DataFrame({
-        "S. No.": [1, 2],
-        "Unit ID": ["", ""],
-        "Status": ["Available for use", "Rejected"],
-        "Box No.": ["", ""],
+        "S. No.": [1, 2, 3],
+        "Unit ID": ["", "", ""],
+        "Status": ["Available for use", "Rejected", "Training"],
+        "Box No.": ["", "", ""],
     })
     return df
 
