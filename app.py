@@ -39,18 +39,17 @@ st.set_page_config(
 st.markdown("""
 <style>
 
+/* Hide Fork button */
 a[href*="fork"] {
     display: none !important;
 }
 
+/* Hide GitHub icon/button */
 a[href*="github"] {
     display: none !important;
 }
 
-div[data-testid="stToolbar"] a {
-    display: none !important;
-}
-
+/* Keep header and menu visible */
 header {
     visibility: visible !important;
 }
@@ -60,18 +59,17 @@ button[kind="header"] {
     visibility: visible !important;
 }
 
-div[data-testid="stToolbar"] > *:not(button) {
-    display: none !important;
-}
-
+/* Hide footer */
 footer {
     visibility: hidden !important;
 }
 
+/* Hide bottom decoration */
 div[data-testid="stDecoration"] {
     display: none !important;
 }
 
+/* Reduce top spacing slightly */
 .block-container {
     padding-top: 1rem !important;
 }
