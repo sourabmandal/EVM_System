@@ -210,6 +210,9 @@ for key in [
     if key not in st.session_state:
         st.session_state[key] = None
 
+if "login_error" not in st.session_state:
+    st.session_state["login_error"] = ""
+
 # ---------------------------------------------------------------------------
 # Helper: animation display
 # ---------------------------------------------------------------------------
@@ -292,6 +295,10 @@ def captcha_page():
         a = st.session_state["captcha_a"]
         b = st.session_state["captcha_b"]
 
+        if st.session_state["login_error"]:
+            st.error(st.session_state["login_error"])
+            st.session_state["login_error"] = ""
+        
         user_id = st.text_input("User ID", key="login_user_id")
         password = st.text_input("Password", type="password", key="login_password")
 
@@ -329,11 +336,13 @@ def captcha_page():
                         st.session_state["authenticated"] = True
                         st.rerun()
                     else:
-                        st.error("Incorrect: " + ", ".join(errors))
+                        st.session_state["login_error"] = "Incorrect: " + ", ".join(errors)
                         st.session_state["refresh_captcha"] = True
                         st.rerun()
                 except ValueError:
-                    st.error("Please enter a valid CAPTCHA answer.")
+                    st.session_state["login_error"] = "Please enter a valid CAPTCHA answer."
+                    st.session_state["refresh_captcha"] = True
+                    st.rerun()
         with c2:
             if st.button("Refresh CAPTCHA", use_container_width=True):
                 st.session_state["refresh_captcha"] = True
