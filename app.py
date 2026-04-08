@@ -214,7 +214,10 @@ for key in [
     "phase2_finalized", "phase2_randomization_date", "phase2_selected_ro", "phase2_selected_constituencies", "phase2_ro_label", "phase2_constituency_label",
 ]:
     if key not in st.session_state:
-        st.session_state[key] = None
+        if key in ["phase2_selected_ro", "phase2_selected_constituencies"]:
+            st.session_state[key] = []
+        else:
+            st.session_state[key] = None
 
 if "login_error" not in st.session_state:
     st.session_state["login_error"] = ""
