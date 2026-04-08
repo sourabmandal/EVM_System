@@ -85,15 +85,27 @@ def _get_pdf_meta(df: pd.DataFrame):
     return constituency, ro_office
 
 
-def _df_to_pdf_table(df: pd.DataFrame, title: str, randomization_date: str, constituency: str, ro_office: str):
+def _df_to_pdf_table(
+    df: pd.DataFrame,
+    title: str,
+    randomization_date: str,
+    constituency: str = None,
+    ro_office: str = None,
+    deo_name: str = None,
+):
     styles = getSampleStyleSheet()
     story = []
 
     story.append(Paragraph(f"<b>{title}</b>", styles["Title"]))
     story.append(Spacer(1, 8))
     story.append(Paragraph(f"<b>Date of Randomization:</b> {randomization_date}", styles["Normal"]))
-    story.append(Paragraph(f"<b>Concerned Constituency:</b> {constituency}", styles["Normal"]))
-    story.append(Paragraph(f"<b>RO Office:</b> {ro_office}", styles["Normal"]))
+
+    if deo_name is not None:
+        story.append(Paragraph(f"<b>DEO:</b> {deo_name}", styles["Normal"]))
+    else:
+        story.append(Paragraph(f"<b>Concerned Constituency:</b> {constituency}", styles["Normal"]))
+        story.append(Paragraph(f"<b>RO Office:</b> {ro_office}", styles["Normal"]))
+
     story.append(Spacer(1, 10))
 
     if df is None or df.empty:
@@ -104,8 +116,22 @@ def _df_to_pdf_table(df: pd.DataFrame, title: str, randomization_date: str, cons
     data = [list(df.columns)] + df.astype(str).values.tolist()
 
     page_width = landscape(A4)[0] - 40
-    col_width = page_width / len(df.columns)
-    col_widths = [col_width] * len(df.columns)
+
+    weights = []
+    for col in df.columns:
+        col_norm = str(col).strip().lower()
+
+        if col_norm in ["slno", "sl no", "s. no.", "s.no.", "polling station no."]:
+            weights.append(0.7)
+        elif col_norm in ["bu unit id", "cu unit id"]:
+            weights.append(1.0)
+        elif col_norm in ["ro/aro's office", "constituency name", "polling station name"]:
+            weights.append(2.2)
+        else:
+            weights.append(1.2)
+
+    total_weight = sum(weights)
+    col_widths = [(page_width * w / total_weight) for w in weights]
 
     table = Table(data, colWidths=col_widths, repeatRows=1)
     table.setStyle(TableStyle([
@@ -491,7 +517,7 @@ def get_phase1_excel(result_df, remaining_bu_df=None, remaining_cu_df=None):
 def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, randomization_date=""):
     buf = BytesIO()
 
-    constituency, ro_office = _get_pdf_meta(result_df)
+    deo_name = "District Election Officer"
 
     doc = SimpleDocTemplate(
         buf,
@@ -507,8 +533,7 @@ def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, random
         result_df,
         "Phase 1 - Assigned EVMs",
         randomization_date,
-        constituency,
-        ro_office,
+        deo_name=deo_name,
     ))
 
     if remaining_bu_df is not None:
@@ -517,8 +542,7 @@ def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, random
             remaining_bu_df,
             "Phase 1 - Remaining BUs",
             randomization_date,
-            constituency,
-            ro_office,
+            deo_name=deo_name,
         ))
 
     if remaining_cu_df is not None:
@@ -527,8 +551,7 @@ def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, random
             remaining_cu_df,
             "Phase 1 - Remaining CUs",
             randomization_date,
-            constituency,
-            ro_office,
+            deo_name=deo_name,
         ))
 
     doc.build(story)
