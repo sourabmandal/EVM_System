@@ -320,7 +320,10 @@ def captcha_page():
                         st.session_state["authenticated"] = True
                         st.rerun()
                     else:
-                        st.error("Invalid User ID, Password, or CAPTCHA.")
+                        if not valid_user or not valid_pass:
+                            st.error("Incorrect User ID or Password.")
+                        else:
+                            st.error("Incorrect Captcha.")
                         st.session_state["refresh_captcha"] = True
                         st.rerun()
                 except ValueError:
