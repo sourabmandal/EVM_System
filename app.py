@@ -4,6 +4,9 @@ import streamlit as st
 import pandas as pd
 import sys
 import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -12,6 +15,8 @@ from evm_logic import (
     run_phase2,
     get_phase1_excel,
     get_phase2_excel,
+    get_phase1_pdf,
+    get_phase2_pdf,
     get_phase1_capacity,
 )
 
@@ -204,8 +209,9 @@ if "authenticated" not in st.session_state:
 
 for key in [
     "phase1_result", "phase1_summary", "phase1_frames", "phase1_warnings",
-    "phase1_remaining_bu", "phase1_remaining_cu",
-    "phase2_assigned", "phase2_reserved", "phase2_summary", "phase2_frames", "phase2_warnings"
+    "phase1_remaining_bu", "phase1_remaining_cu", "phase1_finalized", "phase1_randomization_date",
+    "phase2_assigned", "phase2_reserved", "phase2_summary", "phase2_frames", "phase2_warnings",
+    "phase2_finalized", "phase2_randomization_date"
 ]:
     if key not in st.session_state:
         st.session_state[key] = None
@@ -542,6 +548,8 @@ def main_app():
                         st.session_state["phase1_warnings"] = warnings
                         st.session_state["phase1_remaining_bu"] = remaining_bu_df
                         st.session_state["phase1_remaining_cu"] = remaining_cu_df
+                        st.session_state["phase1_finalized"] = False
+                        st.session_state["phase1_randomization_date"] = datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%d-%m-%Y %H:%M:%S")
                     except Exception as e:
                         st.error(f"Error during Phase 1 randomization: {e}")
 
@@ -648,18 +656,40 @@ def main_app():
                         unsafe_allow_html=True,
                     )
 
-            excel_bytes = get_phase1_excel(
-                result_df,
-                st.session_state.get("phase1_remaining_bu"),
-                st.session_state.get("phase1_remaining_cu"),
-            )
-            st.download_button(
-                label="Finalize and Download Phase 1 Output (Excel)",
-                data=excel_bytes,
-                file_name="phase1_randomization_output.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
+            if not st.session_state.get("phase1_finalized", False):
+                if st.button("Finalize Randomization", key="phase1_finalize_btn", use_container_width=True):
+                    st.session_state["phase1_finalized"] = True
+                    st.rerun()
+            else:
+                excel_bytes = get_phase1_excel(
+                    result_df,
+                    st.session_state.get("phase1_remaining_bu"),
+                    st.session_state.get("phase1_remaining_cu"),
+                )
+                pdf_bytes = get_phase1_pdf(
+                    result_df,
+                    st.session_state.get("phase1_remaining_bu"),
+                    st.session_state.get("phase1_remaining_cu"),
+                    randomization_date=st.session_state.get("phase1_randomization_date", ""),
+                )
+
+                d1, d2 = st.columns(2)
+                with d1:
+                    st.download_button(
+                        label="Download Phase 1 Excel",
+                        data=excel_bytes,
+                        file_name="phase1_randomization_output.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                    )
+                with d2:
+                    st.download_button(
+                        label="Download Phase 1 PDF",
+                        data=pdf_bytes,
+                        file_name="phase1_randomization_output.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
 
     # ------------------------------------------------------------------
     # Phase 2
@@ -705,6 +735,8 @@ def main_app():
                         st.session_state["phase2_summary"] = reserved_summary
                         st.session_state["phase2_frames"] = anim_frames
                         st.session_state["phase2_warnings"] = warnings
+                        st.session_state["phase2_finalized"] = False
+                        st.session_state["phase2_randomization_date"] = datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%d-%m-%Y %H:%M:%S")
                     except Exception as e:
                         st.error(f"Error during Phase 2 randomization: {e}")
 
@@ -775,14 +807,35 @@ def main_app():
                 st.markdown('<div class="section-title">Reserved EVMs</div>', unsafe_allow_html=True)
                 st.dataframe(reserved_df, use_container_width=True, hide_index=True)
 
-            excel_bytes = get_phase2_excel(assigned_df, reserved_df)
-            st.download_button(
-                label="Finalize and Download Phase 2 Output (Excel - Assigned + Reserved sheets)",
-                data=excel_bytes,
-                file_name="phase2_randomization_output.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
+            if not st.session_state.get("phase2_finalized", False):
+                if st.button("Finalize Randomization", key="phase2_finalize_btn", use_container_width=True):
+                    st.session_state["phase2_finalized"] = True
+                    st.rerun()
+            else:
+                excel_bytes = get_phase2_excel(assigned_df, reserved_df)
+                pdf_bytes = get_phase2_pdf(
+                    assigned_df,
+                    reserved_df,
+                    randomization_date=st.session_state.get("phase2_randomization_date", ""),
+                )
+
+                d1, d2 = st.columns(2)
+                with d1:
+                    st.download_button(
+                        label="Download Phase 2 Excel",
+                        data=excel_bytes,
+                        file_name="phase2_randomization_output.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                    )
+                with d2:
+                    st.download_button(
+                        label="Download Phase 2 PDF",
+                        data=pdf_bytes,
+                        file_name="phase2_randomization_output.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
 
 # ---------------------------------------------------------------------------
 # Entry point
