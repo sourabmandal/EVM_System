@@ -1,6 +1,10 @@
 import pandas as pd
 import random
 from io import BytesIO
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import landscape, A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +71,60 @@ def _drop_box_columns(df: pd.DataFrame) -> pd.DataFrame:
             drop_cols.append(col)
 
     return df.drop(columns=drop_cols, errors="ignore")
+
+def _get_pdf_meta(df: pd.DataFrame):
+    if df is None or df.empty:
+        return "N/A", "N/A"
+
+    const_values = [str(x) for x in df.get("Constituency Name", pd.Series(dtype=str)).dropna().unique() if str(x).strip()]
+    ro_values = [str(x) for x in df.get("RO/ARO's Office", pd.Series(dtype=str)).dropna().unique() if str(x).strip()]
+
+    constituency = const_values[0] if len(const_values) == 1 else "Multiple"
+    ro_office = ro_values[0] if len(ro_values) == 1 else "Multiple"
+
+    return constituency, ro_office
+
+
+def _df_to_pdf_table(df: pd.DataFrame, title: str, randomization_date: str, constituency: str, ro_office: str):
+    styles = getSampleStyleSheet()
+    story = []
+
+    story.append(Paragraph(f"<b>{title}</b>", styles["Title"]))
+    story.append(Spacer(1, 8))
+    story.append(Paragraph(f"<b>Date of Randomization:</b> {randomization_date}", styles["Normal"]))
+    story.append(Paragraph(f"<b>Concerned Constituency:</b> {constituency}", styles["Normal"]))
+    story.append(Paragraph(f"<b>RO Office:</b> {ro_office}", styles["Normal"]))
+    story.append(Spacer(1, 10))
+
+    if df is None or df.empty:
+        story.append(Paragraph("No data available.", styles["Normal"]))
+        return story
+
+    df = df.fillna("")
+    data = [list(df.columns)] + df.astype(str).values.tolist()
+
+    page_width = landscape(A4)[0] - 40
+    col_width = page_width / len(df.columns)
+    col_widths = [col_width] * len(df.columns)
+
+    table = Table(data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.75, colors.black),
+        ("BOX", (0, 0), (-1, -1), 1, colors.black),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 6),
+        ("LEADING", (0, 0), (-1, -1), 7),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("WORDWRAP", (0, 0), (-1, -1), "CJK"),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+        ("TOPPADDING", (0, 0), (-1, 0), 6),
+    ]))
+
+    story.append(table)
+    return story
 
 
 def _allocate_by_ratio(items, ps_counts, constituencies, total_ps):
@@ -430,6 +488,52 @@ def get_phase1_excel(result_df, remaining_bu_df=None, remaining_cu_df=None):
 
     return output.getvalue()
 
+def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, randomization_date=""):
+    buf = BytesIO()
+
+    constituency, ro_office = _get_pdf_meta(result_df)
+
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=landscape(A4),
+        leftMargin=20,
+        rightMargin=20,
+        topMargin=20,
+        bottomMargin=20,
+    )
+
+    story = []
+    story.extend(_df_to_pdf_table(
+        result_df,
+        "Phase 1 - Assigned EVMs",
+        randomization_date,
+        constituency,
+        ro_office,
+    ))
+
+    if remaining_bu_df is not None:
+        story.append(PageBreak())
+        story.extend(_df_to_pdf_table(
+            remaining_bu_df,
+            "Phase 1 - Remaining BUs",
+            randomization_date,
+            constituency,
+            ro_office,
+        ))
+
+    if remaining_cu_df is not None:
+        story.append(PageBreak())
+        story.extend(_df_to_pdf_table(
+            remaining_cu_df,
+            "Phase 1 - Remaining CUs",
+            randomization_date,
+            constituency,
+            ro_office,
+        ))
+
+    doc.build(story)
+    return buf.getvalue()
+
 
 # ---------------------------------------------------------------------------
 # Phase 2
@@ -662,4 +766,39 @@ def get_phase2_excel(assigned_df: pd.DataFrame, reserved_df: pd.DataFrame) -> by
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         assigned_df.to_excel(writer, sheet_name="Assigned", index=False)
         reserved_df.to_excel(writer, sheet_name="Reserved", index=False)
+    return buf.getvalue()
+
+def get_phase2_pdf(assigned_df: pd.DataFrame, reserved_df: pd.DataFrame, randomization_date="") -> bytes:
+    buf = BytesIO()
+
+    constituency, ro_office = _get_pdf_meta(assigned_df if assigned_df is not None and not assigned_df.empty else reserved_df)
+
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=landscape(A4),
+        leftMargin=20,
+        rightMargin=20,
+        topMargin=20,
+        bottomMargin=20,
+    )
+
+    story = []
+    story.extend(_df_to_pdf_table(
+        assigned_df,
+        "Phase 2 - Assigned EVMs",
+        randomization_date,
+        constituency,
+        ro_office,
+    ))
+
+    story.append(PageBreak())
+    story.extend(_df_to_pdf_table(
+        reserved_df,
+        "Phase 2 - Reserved EVMs",
+        randomization_date,
+        constituency,
+        ro_office,
+    ))
+
+    doc.build(story)
     return buf.getvalue()
