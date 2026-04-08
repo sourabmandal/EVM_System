@@ -39,17 +39,12 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-/* Hide Fork button */
-a[href*="fork"] {
+/* Try to hide GitHub & Fork links */
+a[href*="github"], a[href*="fork"] {
     display: none !important;
 }
 
-/* Hide GitHub icon/button */
-a[href*="github"] {
-    display: none !important;
-}
-
-/* Keep header and menu visible */
+/* Keep header and menu working */
 header {
     visibility: visible !important;
 }
@@ -69,7 +64,7 @@ div[data-testid="stDecoration"] {
     display: none !important;
 }
 
-/* Reduce top spacing slightly */
+/* Reduce spacing */
 .block-container {
     padding-top: 1rem !important;
 }
