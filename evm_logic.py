@@ -23,18 +23,43 @@ def _read_excel(file) -> pd.DataFrame:
 
 
 def _normalise_status(df: pd.DataFrame) -> pd.DataFrame:
-    """Lower-case strip the Status column so matching is robust."""
+    """
+    Intelligently detect status columns (e.g. 'Movememt Status'), ignore empty/NaN 
+    placeholder columns, and map operational statuses like 'FLC OK' to 'available for use'.
+    """
+    # Drop empty placeholder 'Status' column if present
+    if "Status" in df.columns and df["Status"].dropna().empty:
+        df = df.drop(columns=["Status"])
+
+    # Find any column containing 'status'
+    status_col = None
+    for col in df.columns:
+        norm = str(col).strip().lower().replace("_", " ").replace("-", " ")
+        if "status" in norm:
+            status_col = col
+            break
+
+    if status_col and status_col != "Status":
+        df = df.rename(columns={status_col: "Status"})
+
     if "Status" in df.columns:
         df["Status"] = df["Status"].astype(str).str.strip().str.lower()
+        # Intelligent mapping for real-world EVM status terms
+        status_mapping = {
+            "flc ok": "available for use",
+            "ok": "available for use",
+            "available": "available for use",
+            "ready": "available for use",
+        }
+        df["Status"] = df["Status"].replace(status_mapping)
+
     return df
 
 
 def _find_box_column(df: pd.DataFrame):
     """
-    Return the actual Box No. column name if present, else None.
-    Accept flexible variants like:
-      Box No., Box No, Box Number, BoxNo, BOX NO, Box_No, etc.
-    Also supports BU/CU-prefixed box headers.
+    Intelligently detect box columns across various naming conventions 
+    such as 'Box ID', 'Box No.', 'BoxNumber', etc.
     """
     for col in df.columns:
         norm = str(col).strip().lower()
@@ -45,6 +70,8 @@ def _find_box_column(df: pd.DataFrame):
             "box no",
             "box number",
             "boxno",
+            "box id",
+            "boxid",
             "bu box no",
             "bu box number",
             "cu box no",
