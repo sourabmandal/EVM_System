@@ -284,23 +284,21 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm
     cu_df = _read_excel(cu_file)
 
     required_ps = {"RO/ARO's Office", "Constituency Name", "Polling Station No.", "Polling Station Name"}
-    required_bu = {"Unit ID", "Status"}
-    required_cu = {"Unit ID", "Status"}
-
     missing_ps = required_ps - set(ps_df.columns)
-    missing_bu = required_bu - set(bu_df.columns)
-    missing_cu = required_cu - set(cu_df.columns)
+    if missing_ps:
+        raise ValueError(f"Missing columns in Polling Station file: {missing_ps}")
 
-    if missing_ps or missing_bu or missing_cu:
-        raise ValueError(
-            f"Missing columns -- PS: {missing_ps}, BU: {missing_bu}, CU: {missing_cu}"
-        )
+    # Intelligently normalize status columns and values FIRST
+    bu_df = _normalise_status(bu_df)
+    cu_df = _normalise_status(cu_df)
+
+    if "Unit ID" not in bu_df.columns or "Status" not in bu_df.columns:
+        raise ValueError("BU file must contain 'Unit ID' and a status column.")
+    if "Unit ID" not in cu_df.columns or "Status" not in cu_df.columns:
+        raise ValueError("CU file must contain 'Unit ID' and a status column.")
 
     bu_box_col = _find_box_column(bu_df)
     cu_box_col = _find_box_column(cu_df)
-
-    bu_df = _normalise_status(bu_df)
-    cu_df = _normalise_status(cu_df)
 
     bu_keep_cols = ["Unit ID"]
     if bu_box_col:
