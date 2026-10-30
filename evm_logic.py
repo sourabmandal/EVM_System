@@ -211,26 +211,26 @@ def _allocate_by_ratio(items, ps_counts, constituencies, total_ps):
 def get_phase1_capacity(ps_file, bu_file, cu_file):
     """
     Return Phase 1 capacity details so UI can show max assignable percentage.
+    Uses intelligent column normalization to support 'Movememt Status' and other variants.
     """
     ps_df = _read_excel(ps_file)
     bu_df = _read_excel(bu_file)
     cu_df = _read_excel(cu_file)
 
     required_ps = {"RO/ARO's Office", "Constituency Name", "Polling Station No.", "Polling Station Name"}
-    required_bu = {"Unit ID", "Status"}
-    required_cu = {"Unit ID", "Status"}
-
+    
     missing_ps = required_ps - set(ps_df.columns)
-    missing_bu = required_bu - set(bu_df.columns)
-    missing_cu = required_cu - set(cu_df.columns)
+    if missing_ps:
+        raise ValueError(f"Missing columns in Polling Station file: {missing_ps}")
 
-    if missing_ps or missing_bu or missing_cu:
-        raise ValueError(
-            f"Missing columns -- PS: {missing_ps}, BU: {missing_bu}, CU: {missing_cu}"
-        )
-
+    # Intelligently normalize status columns and values before checking capacity
     bu_df = _normalise_status(bu_df)
     cu_df = _normalise_status(cu_df)
+
+    if "Unit ID" not in bu_df.columns or "Status" not in bu_df.columns:
+        raise ValueError("BU file must contain 'Unit ID' and a status column.")
+    if "Unit ID" not in cu_df.columns or "Status" not in cu_df.columns:
+        raise ValueError("CU file must contain 'Unit ID' and a status column.")
 
     bu_available_count = (bu_df["Status"] == "available for use").sum()
     cu_available_count = (cu_df["Status"] == "available for use").sum()
