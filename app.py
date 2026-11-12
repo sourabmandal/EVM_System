@@ -614,8 +614,7 @@ def main_app():
                     st.markdown("**Enter exact, separate BU and CU quantities for each constituency.**")
                     st.caption(
                         "Do not enter BU/CU pairs as a single number. Specify both values "
-                        "independently. The values below determine the actual Phase 1 allocation, "
-                        "not just a preview."
+                        "independently.
                     )
                     requested_rows = []
                     for i, row in default_allocation.iterrows():
