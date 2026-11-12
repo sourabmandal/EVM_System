@@ -19,6 +19,7 @@ from evm_logic import (
     get_phase1_pdf,
     get_phase2_pdf,
     get_phase1_capacity,
+    get_phase1_current_assignments,
 )
 
 # ---------------------------------------------------------------------------
@@ -246,7 +247,7 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 for key in [
-    "phase1_result", "phase1_summary", "phase1_frames", "phase1_warnings",
+    "phase1_result", "phase1_current_result", "phase1_summary", "phase1_frames", "phase1_warnings",
     "phase1_remaining_bu", "phase1_remaining_cu", "phase1_finalized", "phase1_randomization_date",
     "phase2_assigned", "phase2_reserved", "phase2_summary", "phase2_frames", "phase2_warnings",
     "phase2_finalized", "phase2_randomization_date", "phase2_selected_ro", "phase2_selected_constituencies", "phase2_ro_label", "phase2_constituency_label",
@@ -494,7 +495,8 @@ def main_app():
         st.markdown("## Phase 1: EVM Constituency Randomization")
         st.markdown(
             "Upload the three input files below. The system will randomly assign "
-            "all available BUs and CUs to constituencies."
+            "available BUs and CUs to constituencies. You can specify exact, "
+            "separate quantities for each constituency."
         )
 
         st.markdown("### Download Blank Templates")
@@ -571,7 +573,9 @@ def main_app():
             st.caption(
                 "The BU/CU input files above must contain the NEW units only. "
                 "The updated Phase 1 Excel output will combine old and new assignments "
-                "for use by Phase 2."
+                "for use by Phase 2. On-screen results will display only the "
+                "new assignments; the PDF will show those first and the "
+                "complete list afterwards."
             )
 
         st.markdown("### EVM Allocation Mode")
@@ -579,7 +583,8 @@ def main_app():
             "Choose how BUs and CUs will be distributed",
             ["Automatic - polling-station ratio", "Exact - constituency-wise quantities"],
             horizontal=True,
-            key="p1_allocation_method",
+            index=1 if incremental_phase1 else 0,
+            key="p1_allocation_method_additional" if incremental_phase1 else "p1_allocation_method",
         )
         use_all_available = True
         bu_percentage = None
@@ -606,35 +611,80 @@ def main_app():
                     input_signature = hashlib.sha256(
                         ps_file.getvalue() + bu_file.getvalue() + cu_file.getvalue()
                     ).hexdigest()[:16]
-                    st.markdown("**Enter the BU and CU quantities to allocate to each constituency:**")
-                    constituency_allocations = st.data_editor(
-                        default_allocation,
-                        key=f"p1_exact_allocation_{input_signature}",
-                        hide_index=True,
-                        num_rows="fixed",
-                        use_container_width=True,
-                        disabled=["RO/ARO's Office", "Constituency Name", "Polling Stations"],
-                        column_config={
-                            "Base BUs": st.column_config.NumberColumn("BUs to Allocate", min_value=0, step=1, required=True),
-                            "Base CUs": st.column_config.NumberColumn("CUs to Allocate", min_value=0, step=1, required=True),
-                        },
+                    st.markdown("**Enter exact, separate BU and CU quantities for each constituency.**")
+                    st.caption(
+                        "Do not enter BU/CU pairs as a single number. Specify both values "
+                        "independently. The values below determine the actual Phase 1 allocation, "
+                        "not just a preview."
                     )
-                    preview = constituency_allocations.copy()
-                    planned_bu = pd.to_numeric(preview["Base BUs"], errors="coerce").sum()
-                    planned_cu = pd.to_numeric(preview["Base CUs"], errors="coerce").sum()
-                    st.caption("These are the final Phase 1 quantities; Phase 2 handles optional reservations from this allocation.")
+                    requested_rows = []
+                    for i, row in default_allocation.iterrows():
+                        name = str(row["Constituency Name"])
+                        ro_office = str(row["RO/ARO's Office"])
+                        st.markdown(
+                            f"**{name}**  |  {int(row['Polling Stations'])} polling station(s)  |  "
+                            f"{ro_office}"
+                        )
+                        col_bu, col_cu = st.columns(2)
+                        with col_bu:
+                            requested_bu = st.number_input(
+                                f"BUs to allocate to {name}",
+                                min_value=0,
+                                max_value=int(capacity["available_bus"]),
+                                value=int(row["Base BUs"]),
+                                step=1,
+                                key=f"p1_exact_bu_{input_signature}_{i}",
+                            )
+                        with col_cu:
+                            requested_cu = st.number_input(
+                                f"CUs to allocate to {name}",
+                                min_value=0,
+                                max_value=int(capacity["available_cus"]),
+                                value=int(row["Base CUs"]),
+                                step=1,
+                                key=f"p1_exact_cu_{input_signature}_{i}",
+                            )
+                        requested_rows.append({
+                            "Constituency Name": name,
+                            "Base BUs": int(requested_bu),
+                            "Base CUs": int(requested_cu),
+                        })
+
+                    constituency_allocations = pd.DataFrame(requested_rows)
+                    planned_bu = int(constituency_allocations["Base BUs"].sum())
+                    planned_cu = int(constituency_allocations["Base CUs"].sum())
+                    st.markdown("**Confirm constituency-wise allocation before randomization:**")
+                    preview = default_allocation[["Constituency Name", "Polling Stations"]].merge(
+                        constituency_allocations, on="Constituency Name", how="left", validate="one_to_one"
+                    )
+                    preview["Assigned BU vs PS (%)"] = (
+                        100 * preview["Base BUs"] / preview["Polling Stations"]
+                    ).round(2)
+                    preview["Assigned CU vs PS (%)"] = (
+                        100 * preview["Base CUs"] / preview["Polling Stations"]
+                    ).round(2)
+                    st.dataframe(preview.rename(columns={
+                        "Base BUs": "BUs to Allocate", "Base CUs": "CUs to Allocate",
+                    }), use_container_width=True, hide_index=True)
                     if planned_bu > capacity["available_bus"] or planned_cu > capacity["available_cus"]:
                         st.error(
-                            f"Insufficient stock: the plan needs {planned_bu:g} BUs and {planned_cu:g} CUs, "
+                            f"Insufficient stock: the plan needs {planned_bu} BUs and {planned_cu} CUs, "
                             f"but only {capacity['available_bus']} BUs and {capacity['available_cus']} CUs "
-                            "are available. Reduce the base counts or provide more units."
+                            "are available. Reduce the input counts or provide more units."
                         )
                     else:
                         st.success(
-                            f"Planned: {planned_bu:g} BUs and {planned_cu:g} CUs. "
-                            f"Remaining: {capacity['available_bus'] - planned_bu:g} BUs, "
-                            f"{capacity['available_cus'] - planned_cu:g} CUs."
+                            f"Confirmed totals: {planned_bu} BUs and {planned_cu} CUs. "
+                            f"Unallocated stock: {capacity['available_bus'] - planned_bu} BUs "
+                            f"and {capacity['available_cus'] - planned_cu} CUs."
                         )
+                        if incremental_phase1 and (
+                            planned_bu < capacity["available_bus"] or planned_cu < capacity["available_cus"]
+                        ):
+                            st.warning(
+                                "Some newly uploaded units are not included in this additional allocation. "
+                                "Increase the constituency quantities if you intend to assign all of them."
+                            )
                 else:
                     use_all_available = st.checkbox(
                         "Use all available BUs and CUs", value=True,
@@ -663,11 +713,37 @@ def main_app():
             except Exception as e:
                 st.warning(f"Could not prepare Phase 1 allocation: {e}")
 
+        # A prior randomization must never appear to reflect newly edited quotas.
+        current_inputs = hashlib.sha256()
+        for uploaded in (ps_file, bu_file, cu_file, existing_phase1_file):
+            current_inputs.update(uploaded.getvalue() if uploaded is not None else b"<not uploaded>")
+            current_inputs.update(b"\0")
+        current_inputs.update(repr((
+            incremental_phase1, allocation_method, use_all_available,
+            bu_percentage, cu_percentage,
+            constituency_allocations.to_dict("records") if constituency_allocations is not None else None,
+        )).encode("utf-8"))
+        current_inputs_digest = current_inputs.hexdigest()
+        if (st.session_state.get("phase1_run_input_digest") is not None
+                and st.session_state["phase1_run_input_digest"] != current_inputs_digest):
+            st.session_state["phase1_result"] = None
+            st.session_state["phase1_current_result"] = None
+            st.session_state["phase1_finalized"] = False
+            st.session_state["phase1_run_input_digest"] = None
+
         if st.button("Run Phase 1 Randomization", use_container_width=True):
             if not ps_file or not bu_file or not cu_file:
                 st.error("Please upload all three files before running.")
             elif incremental_phase1 and not existing_phase1_file:
                 st.error("Upload the existing Phase 1 output to append additional units.")
+            elif capacity is None:
+                st.error("Please correct the uploaded Phase 1 files before randomization.")
+            elif allocation_method == "Exact - constituency-wise quantities" and (
+                constituency_allocations is None
+                or int(constituency_allocations["Base BUs"].sum()) > capacity["available_bus"]
+                or int(constituency_allocations["Base CUs"].sum()) > capacity["available_cus"]
+            ):
+                st.error("Enter valid exact BU/CU quantities for every constituency before running.")
             else:
                 with st.spinner("Randomizing EVMs across constituencies..."):
                     try:
@@ -685,7 +761,11 @@ def main_app():
                         )
                         st.session_state["phase1_incremental_used"] = incremental_phase1
                         st.session_state["phase1_result"] = result_df
+                        st.session_state["phase1_current_result"] = get_phase1_current_assignments(
+                            result_df, summary if incremental_phase1 else None
+                        )
                         st.session_state["phase1_summary"] = summary
+                        st.session_state["phase1_run_input_digest"] = current_inputs_digest
                         st.session_state["phase1_frames"] = frames
                         st.session_state["phase1_warnings"] = warnings
                         st.session_state["phase1_remaining_bu"] = remaining_bu_df
@@ -704,9 +784,38 @@ def main_app():
             if frames:
                 display_phase1_animation(frames)
 
-            st.markdown('<div class="section-title">Constituency-wise EVM Summary</div>', unsafe_allow_html=True)
+            incremental_used = st.session_state.get("phase1_incremental_used", False)
+            if incremental_used:
+                st.markdown(
+                    '<div class="section-title">New Units: Constituency-wise Summary</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    '<div class="section-title">Constituency-wise EVM Summary</div>',
+                    unsafe_allow_html=True,
+                )
             summary = st.session_state["phase1_summary"].copy()
             result_df = st.session_state["phase1_result"]
+            current_result_df = st.session_state.get("phase1_current_result")
+            if current_result_df is None:
+                current_result_df = result_df
+            if incremental_used:
+                # Screen totals and percentages describe only the current receipt.
+                summary["No. of BUs Assigned"] = summary["New BUs Assigned"]
+                summary["No. of CUs Assigned"] = summary["New CUs Assigned"]
+                summary["Assigned BU vs PS (%)"] = (
+                    100 * summary["No. of BUs Assigned"] / summary["No. of Polling Stations"]
+                ).round(2)
+                summary["Assigned CU vs PS (%)"] = (
+                    100 * summary["No. of CUs Assigned"] / summary["No. of Polling Stations"]
+                ).round(2)
+                summary = summary.drop(columns=["New BUs Assigned", "New CUs Assigned"])
+                st.caption(
+                    "Only newly allocated BUs/CUs are shown on this page. "
+                    "The Excel download contains the combined allocation; "
+                    "the PDF shows the new assignments first, followed by the complete list."
+                )
 
             total_bus_assigned = summary["No. of BUs Assigned"].sum()
             total_cus_assigned = summary["No. of CUs Assigned"].sum()
@@ -776,11 +885,11 @@ def main_app():
                     unsafe_allow_html=True,
                 )
 
-            st.markdown('<div class="section-title">Full Randomization Output</div>', unsafe_allow_html=True)
-            if st.session_state.get("phase1_incremental_used"):
-                st.caption("Combined output: previous unit-to-constituency assignments are retained; new units are appended.")
-            result_df = st.session_state["phase1_result"]
-            st.dataframe(result_df, use_container_width=True, hide_index=True)
+            if incremental_used:
+                st.markdown('<div class="section-title">Current Randomization - Additional Units Only</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="section-title">Full Randomization Output</div>', unsafe_allow_html=True)
+            st.dataframe(current_result_df, use_container_width=True, hide_index=True)
 
             remaining_bu_df = st.session_state["phase1_remaining_bu"]
             remaining_cu_df = st.session_state["phase1_remaining_cu"]
@@ -819,14 +928,16 @@ def main_app():
                     result_df,
                     st.session_state.get("phase1_remaining_bu"),
                     st.session_state.get("phase1_remaining_cu"),
-                    summary_df=st.session_state.get("phase1_summary"),
+                    summary_df=st.session_state["phase1_summary"].drop(
+                        columns=["New BUs Assigned", "New CUs Assigned"], errors="ignore"
+                    ),
                 )
                 pdf_bytes = get_phase1_pdf(
                     result_df,
                     st.session_state.get("phase1_remaining_bu"),
                     st.session_state.get("phase1_remaining_cu"),
                     randomization_date=st.session_state.get("phase1_randomization_date", ""),
-                    summary_df=st.session_state.get("phase1_summary"),
+                    current_result_df=current_result_df if incremental_used else None,
                 )
 
                 d1, d2 = st.columns(2)
