@@ -239,15 +239,15 @@ def get_phase1_capacity(ps_file, bu_file, cu_file):
     if total_ps == 0:
         raise ValueError("Total polling station count is zero.")
 
-    max_units = max(bu_available_count, cu_available_count)
-    max_percentage = round((max_units / total_ps) * 100, 2)
-
     return {
         "total_polling_stations": int(total_ps),
         "available_bus": int(bu_available_count),
         "available_cus": int(cu_available_count),
-        "max_units": int(max_units),
-        "max_percentage": float(max_percentage),
+        "max_bu_percentage": round((bu_available_count / total_ps) * 100, 2),
+        "max_cu_percentage": round((cu_available_count / total_ps) * 100, 2),
+        # Backward-compatible keys for callers outside this application.
+        "max_units": int(max(bu_available_count, cu_available_count)),
+        "max_percentage": round((max(bu_available_count, cu_available_count) / total_ps) * 100, 2),
     }
 
 
@@ -272,26 +272,73 @@ def _cap_records_to_percentage(records, total_ps, percentage):
 # Phase 1
 # ---------------------------------------------------------------------------
 
-def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm_percentage=None):
-    """Randomly assign available BUs and CUs to constituencies."""
-    if seed is not None:
-        random.seed(seed)
+def _allocate_by_exact_counts(items, counts, constituencies):
+    """Allocate randomized records according to explicit constituency quotas."""
+    allocations = {}
+    offset = 0
+    for constituency in constituencies:
+        count = counts[constituency]
+        allocations[constituency] = items[offset:offset + count]
+        offset += count
+    if offset != len(items):
+        raise ValueError("The requested constituency counts do not match the selected units.")
+    return allocations
 
+
+def _validate_constituency_allocations(allocations, constituencies):
+    """Read integer BU/CU base quotas from the editable Phase 1 allocation table."""
+    table = pd.DataFrame(allocations)
+    required_columns = {"Constituency Name", "Base BUs", "Base CUs"}
+    if not required_columns.issubset(table.columns):
+        raise ValueError("Exact allocation requires Constituency Name, Base BUs and Base CUs columns.")
+
+    names = table["Constituency Name"].astype(str).str.strip()
+    expected = set(constituencies)
+    if len(table) != len(constituencies) or len(set(names)) != len(names) or set(names) != expected:
+        raise ValueError("Provide exactly one allocation row for every constituency in the polling-station file.")
+
+    counts = {"BU": {}, "CU": {}}
+    for _, row in table.iterrows():
+        constituency = str(row["Constituency Name"]).strip()
+        for column, key in (("Base BUs", "BU"), ("Base CUs", "CU")):
+            value = row[column]
+            if pd.isna(value):
+                raise ValueError(f"{column} cannot be empty for '{constituency}'.")
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                raise ValueError(f"{column} must be a whole number for '{constituency}'.") from None
+            if not number.is_integer() or number < 0:
+                raise ValueError(f"{column} must be a non-negative whole number for '{constituency}'.")
+            counts[key][constituency] = int(number)
+    return counts["BU"], counts["CU"]
+
+
+def run_phase1(
+    ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm_percentage=None,
+    bu_percentage=None, cu_percentage=None, constituency_allocations=None,
+    existing_phase1_file=None,
+):
+    """
+    Randomly allocate actual BUs and CUs in Phase 1.
+
+    Automatic mode distributes separate BU/CU totals by polling-station ratio.
+    Exact mode takes independent base BU/CU quotas for each constituency.
+    Phase 1 never creates or designates reserved units; that is an option in
+    Phase 2. The Phase 1 export shape stays compatible with Phase 2.
+    An earlier Phase 1 file may be merged without re-randomizing its Unit IDs.
+    """
+    rng = random.Random(seed)
     warnings = []
 
     ps_df = _read_excel(ps_file)
-    bu_df = _read_excel(bu_file)
-    cu_df = _read_excel(cu_file)
+    bu_df = _normalise_status(_read_excel(bu_file))
+    cu_df = _normalise_status(_read_excel(cu_file))
 
     required_ps = {"RO/ARO's Office", "Constituency Name", "Polling Station No.", "Polling Station Name"}
     missing_ps = required_ps - set(ps_df.columns)
     if missing_ps:
         raise ValueError(f"Missing columns in Polling Station file: {missing_ps}")
-
-    # Intelligently normalize status columns and values FIRST
-    bu_df = _normalise_status(bu_df)
-    cu_df = _normalise_status(cu_df)
-
     if "Unit ID" not in bu_df.columns or "Status" not in bu_df.columns:
         raise ValueError("BU file must contain 'Unit ID' and a status column.")
     if "Unit ID" not in cu_df.columns or "Status" not in cu_df.columns:
@@ -299,158 +346,158 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm
 
     bu_box_col = _find_box_column(bu_df)
     cu_box_col = _find_box_column(cu_df)
-
-    bu_keep_cols = ["Unit ID"]
-    if bu_box_col:
-        bu_keep_cols.append(bu_box_col)
-
-    cu_keep_cols = ["Unit ID"]
-    if cu_box_col:
-        cu_keep_cols.append(cu_box_col)
-
-    bu_available = (
-        bu_df[bu_df["Status"] == "available for use"][bu_keep_cols]
-        .copy()
-        .reset_index(drop=True)
-    )
-    cu_available = (
-        cu_df[cu_df["Status"] == "available for use"][cu_keep_cols]
-        .copy()
-        .reset_index(drop=True)
-    )
+    bu_keep = ["Unit ID"] + ([bu_box_col] if bu_box_col else [])
+    cu_keep = ["Unit ID"] + ([cu_box_col] if cu_box_col else [])
+    bu_available = bu_df.loc[bu_df["Status"] == "available for use", bu_keep].copy().reset_index(drop=True)
+    cu_available = cu_df.loc[cu_df["Status"] == "available for use", cu_keep].copy().reset_index(drop=True)
 
     if bu_available.empty:
         raise ValueError("No BUs with status 'available for use' found.")
     if cu_available.empty:
         raise ValueError("No CUs with status 'available for use' found.")
-
     if bu_box_col:
         bu_available = bu_available.rename(columns={bu_box_col: "BU Box No."})
     if cu_box_col:
         cu_available = cu_available.rename(columns={cu_box_col: "CU Box No."})
 
-    constituency_info = (
-        ps_df[["RO/ARO's Office", "Constituency Name"]]
-        .drop_duplicates()
-        .reset_index(drop=True)
-    )
-    constituencies = constituency_info["Constituency Name"].tolist()
-    n_const = len(constituencies)
+    for label, data in (("BU", bu_available), ("CU", cu_available)):
+        if data["Unit ID"].isna().any() or (data["Unit ID"].astype(str).str.strip() == "").any():
+            raise ValueError(f"Available {label} records must have non-empty Unit IDs.")
+        if data["Unit ID"].astype(str).str.strip().duplicated().any():
+            raise ValueError(f"Duplicate available {label} Unit IDs were found. Please correct the input file.")
 
-    if n_const == 0:
+    constituency_info = ps_df[["RO/ARO's Office", "Constituency Name"]].drop_duplicates().reset_index(drop=True)
+    if constituency_info["Constituency Name"].duplicated().any():
+        raise ValueError("Each constituency must map to one RO/ARO office in the Polling Station file.")
+    constituencies = constituency_info["Constituency Name"].tolist()
+    if not constituencies:
         raise ValueError("No constituencies found in Polling Station file.")
+    ro_map = dict(zip(constituency_info["Constituency Name"], constituency_info["RO/ARO's Office"]))
+    ps_counts = ps_df.groupby("Constituency Name").size().reindex(constituencies, fill_value=0)
+    total_ps = int(ps_counts.sum())
+    if not total_ps:
+        raise ValueError("Total polling station count is zero. Cannot compute ratios.")
+
+    existing_df = None
+    if existing_phase1_file is not None:
+        # Read the assigned sheet from an earlier Phase 1 workbook. Previous
+        # assignments and SlNo values are preserved when the new units are appended.
+        existing_df = _drop_box_columns(_read_excel(existing_phase1_file)).copy()
+        required_existing = {"SlNo", "BU Unit ID", "CU Unit ID", "RO/ARO's Office", "Constituency Name"}
+        missing_existing = required_existing - set(existing_df.columns)
+        if missing_existing:
+            raise ValueError(f"Existing Phase 1 output is missing columns: {missing_existing}")
+        if existing_df.empty:
+            raise ValueError("Existing Phase 1 output contains no assignments.")
+        if existing_df["Constituency Name"].isna().any():
+            raise ValueError("Existing Phase 1 output has blank constituency names.")
+        prior_names = set(existing_df["Constituency Name"])
+        if not prior_names.issubset(set(constituencies)):
+            raise ValueError(
+                "All constituencies in the existing Phase 1 output must also be present "
+                "in the uploaded polling-station list."
+            )
+        for row in existing_df[["Constituency Name", "RO/ARO's Office"]].drop_duplicates().itertuples(index=False, name=None):
+            name, ro = row
+            if str(ro).strip() != str(ro_map[name]).strip():
+                raise ValueError(f"RO/ARO office differs for existing constituency '{name}'.")
+        slnos = pd.to_numeric(existing_df["SlNo"], errors="coerce")
+        if slnos.isna().any() or (slnos < 1).any() or (slnos % 1 != 0).any() or slnos.duplicated().any():
+            raise ValueError("Existing Phase 1 output must have unique, positive whole-number SlNo values.")
+        for kind, old_column, new_data in (
+            ("BU", "BU Unit ID", bu_available), ("CU", "CU Unit ID", cu_available)
+        ):
+            old_ids = existing_df[old_column].dropna().astype(str).str.strip()
+            old_ids = old_ids[old_ids != ""]
+            if old_ids.duplicated().any():
+                raise ValueError(f"Existing Phase 1 output has duplicate {kind} Unit IDs.")
+            clashes = set(old_ids) & set(new_data["Unit ID"].astype(str).str.strip())
+            if clashes:
+                raise ValueError(
+                    f"The new {kind} file contains Unit IDs already assigned in the "
+                    "existing Phase 1 output. Upload newly received units only."
+                )
 
     bu_records = bu_available.to_dict(orient="records")
     cu_records = cu_available.to_dict(orient="records")
-    random.shuffle(bu_records)
-    random.shuffle(cu_records)
+    rng.shuffle(bu_records)
+    rng.shuffle(cu_records)
 
-    ps_counts = (
-        ps_df.groupby("Constituency Name")
-        .size()
-        .reindex(constituencies, fill_value=0)
-    )
-    total_ps = ps_counts.sum()
+    base_bu_capacity = len(bu_records)
+    base_cu_capacity = len(cu_records)
 
-    if total_ps == 0:
-        raise ValueError("Total polling station count is zero. Cannot compute ratios.")
-
-    max_units_possible = max(len(bu_records), len(cu_records))
-    max_percentage_possible = int((max_units_possible / total_ps) * 100)
-
-    if not use_all_available:
-        if evm_percentage is None:
-            raise ValueError("EVM percentage is required when 'Use all available' is not selected.")
-
-        evm_percentage = round(float(evm_percentage), 2)
-
-        if evm_percentage <= 0:
-            raise ValueError("EVM percentage must be greater than 0.")
-
-        if evm_percentage > max_percentage_possible:
-            raise ValueError(
-                f"Requested percentage ({evm_percentage}%) exceeds maximum possible "
-                f"percentage ({max_percentage_possible}%)."
+    if constituency_allocations is not None:
+        bu_base_counts, cu_base_counts = _validate_constituency_allocations(constituency_allocations, constituencies)
+        bu_base_total = sum(bu_base_counts.values())
+        cu_base_total = sum(cu_base_counts.values())
+    else:
+        if use_all_available:
+            # In Phase 1, all available units are allocated to constituencies.
+            bu_base_total, cu_base_total = base_bu_capacity, base_cu_capacity
+        else:
+            if bu_percentage is None:
+                bu_percentage = evm_percentage  # older API compatibility
+            if cu_percentage is None:
+                cu_percentage = evm_percentage
+            if bu_percentage is None or cu_percentage is None:
+                raise ValueError("Enter separate BU and CU assignment percentages.")
+            bu_percentage, cu_percentage = float(bu_percentage), float(cu_percentage)
+            if not (bu_percentage > 0 and cu_percentage > 0):
+                raise ValueError("BU and CU assignment percentages must each be greater than zero.")
+            # Keep the pre-existing floor rule when converting percentages to units.
+            bu_base_total = len(_cap_records_to_percentage(bu_records, total_ps, bu_percentage))
+            cu_base_total = len(_cap_records_to_percentage(cu_records, total_ps, cu_percentage))
+            if int((bu_percentage / 100) * total_ps) > base_bu_capacity or int((cu_percentage / 100) * total_ps) > base_cu_capacity:
+                raise ValueError(
+                    "Requested BU/CU percentages exceed available inventory."
+                )
+            warnings.append(
+                f"Percentage mode: base BUs={bu_base_total} ({bu_percentage:g}%), "
+                f"base CUs={cu_base_total} ({cu_percentage:g}%)."
             )
 
-        bu_records = _cap_records_to_percentage(bu_records, total_ps, evm_percentage)
-        cu_records = _cap_records_to_percentage(cu_records, total_ps, evm_percentage)
+        # Determine the base counts separately for BUs and CUs.
+        def ratio_counts(n):
+            return {name: len(group) for name, group in _allocate_by_ratio(
+                [None] * n, ps_counts, constituencies, total_ps
+            ).items()}
+        bu_base_counts = ratio_counts(bu_base_total)
+        cu_base_counts = ratio_counts(cu_base_total)
 
-        warnings.append(
-            f"Percentage mode selected: only enough units for {evm_percentage}% of polling stations "
-            f"have been included in Phase 1 randomization."
+    if bu_base_total > base_bu_capacity or cu_base_total > base_cu_capacity:
+        raise ValueError(
+            f"Requested allocation needs {bu_base_total} BUs and {cu_base_total} CUs, "
+            f"but only {len(bu_records)} BUs and {len(cu_records)} CUs are available."
         )
+    if bu_base_total <= 0 or cu_base_total <= 0:
+        raise ValueError("At least one BU and one CU must be allocated.")
 
-    bu_allocation = _allocate_by_ratio(bu_records, ps_counts, constituencies, total_ps)
-    cu_allocation = _allocate_by_ratio(cu_records, ps_counts, constituencies, total_ps)
-
-    bu_assignments = []
-    for const_name in constituencies:
-        ro_office = constituency_info.loc[
-            constituency_info["Constituency Name"] == const_name,
-            "RO/ARO's Office"
-        ].values[0]
-
-        for rec in bu_allocation[const_name]:
-            row = {
-                "Constituency Name": const_name,
-                "RO/ARO's Office": ro_office,
-                "BU Unit ID": rec["Unit ID"],
-            }
-            if "BU Box No." in rec:
-                row["BU Box No."] = rec["BU Box No."]
-            bu_assignments.append(row)
-
-    cu_assignments = []
-    for const_name in constituencies:
-        for rec in cu_allocation[const_name]:
-            row = {
-                "Constituency Name": const_name,
-                "CU Unit ID": rec["Unit ID"],
-            }
-            if "CU Box No." in rec:
-                row["CU Box No."] = rec["CU Box No."]
-            cu_assignments.append(row)
-
-    bu_assign_df = pd.DataFrame(bu_assignments)
-    cu_assign_df = pd.DataFrame(cu_assignments)
+    bu_allocation = _allocate_by_exact_counts(bu_records[:bu_base_total], bu_base_counts, constituencies)
+    cu_allocation = _allocate_by_exact_counts(cu_records[:cu_base_total], cu_base_counts, constituencies)
 
     result_rows = []
-    evm_sl = 1
-
-    for const_name in constituencies:
-        ro_office = constituency_info.loc[
-            constituency_info["Constituency Name"] == const_name,
-            "RO/ARO's Office"
-        ].values[0]
-
-        bu_const = bu_assign_df[bu_assign_df["Constituency Name"] == const_name].reset_index(drop=True)
-        cu_const = cu_assign_df[cu_assign_df["Constituency Name"] == const_name].reset_index(drop=True)
-
+    for name in constituencies:
+        bu_const = bu_allocation[name]
+        cu_const = cu_allocation[name]
         if len(bu_const) != len(cu_const):
             warnings.append(
-                f"Constituency '{const_name}': BU count ({len(bu_const)}) != CU count ({len(cu_const)})."
+                f"Constituency '{name}': BU count ({len(bu_const)}) != CU count ({len(cu_const)})."
             )
-
-        n_rows = max(len(bu_const), len(cu_const))
-
-        for i in range(n_rows):
+        for i in range(max(len(bu_const), len(cu_const))):
+            bu = bu_const[i] if i < len(bu_const) else {}
+            cu = cu_const[i] if i < len(cu_const) else {}
             row = {
-                "SlNo": evm_sl,
-                "RO/ARO's Office": ro_office,
-                "Constituency Name": const_name,
-                "BU Unit ID": bu_const.at[i, "BU Unit ID"] if i < len(bu_const) else None,
-                "CU Unit ID": cu_const.at[i, "CU Unit ID"] if i < len(cu_const) else None,
+                "SlNo": len(result_rows) + 1,
+                "BU Unit ID": bu.get("Unit ID"),
+                "CU Unit ID": cu.get("Unit ID"),
+                "RO/ARO's Office": ro_map[name],
+                "Constituency Name": name,
             }
-
-            if "BU Box No." in bu_const.columns:
-                row["BU Box No."] = bu_const.at[i, "BU Box No."] if i < len(bu_const) else None
-
-            if "CU Box No." in cu_const.columns:
-                row["CU Box No."] = cu_const.at[i, "CU Box No."] if i < len(cu_const) else None
-
+            if bu_box_col:
+                row["BU Box No."] = bu.get("BU Box No.")
+            if cu_box_col:
+                row["CU Box No."] = cu.get("CU Box No.")
             result_rows.append(row)
-            evm_sl += 1
 
     output_cols = ["SlNo", "BU Unit ID"]
     if bu_box_col:
@@ -459,69 +506,73 @@ def run_phase1(ps_file, bu_file, cu_file, seed=None, use_all_available=True, evm
     if cu_box_col:
         output_cols.append("CU Box No.")
     output_cols.extend(["RO/ARO's Office", "Constituency Name"])
-
-    result_df = pd.DataFrame(result_rows)
-    if result_df.empty:
-        result_df = pd.DataFrame(columns=output_cols)
+    new_result_df = pd.DataFrame(result_rows, columns=output_cols)
+    if existing_df is not None:
+        # Don't change any previous allocation. Only append new records with new serials.
+        existing_df = existing_df[[col for col in output_cols if col in existing_df.columns]].copy()
+        added = new_result_df.copy()
+        added["SlNo"] = range(int(existing_df["SlNo"].max()) + 1,
+                                int(existing_df["SlNo"].max()) + 1 + len(added))
+        result_df = pd.concat([existing_df, added], ignore_index=True)
+        result_df = result_df.reindex(columns=output_cols)
+        warnings.append(
+            f"Previous Phase 1 allocations retained; {bu_base_total} new BU(s) "
+            f"and {cu_base_total} new CU(s) appended."
+        )
     else:
-        result_df = result_df[output_cols]
+        result_df = new_result_df
 
     summary_rows = []
-    for const_name in constituencies:
-        sub = result_df[result_df["Constituency Name"] == const_name]
-        ps_count = int(ps_counts[const_name])
-
-        bu_assigned = sub["BU Unit ID"].notna().sum() if not sub.empty else 0
-        cu_assigned = sub["CU Unit ID"].notna().sum() if not sub.empty else 0
-        assigned_pct = round((max(bu_assigned, cu_assigned) / ps_count) * 100, 2) if ps_count else 0
-
-        summary_rows.append({
-            "Constituency Name": const_name,
-            "RO/ARO's Office": sub["RO/ARO's Office"].iloc[0] if not sub.empty else "",
+    for name in constituencies:
+        ps_count = int(ps_counts[name])
+        new_bu_assigned = len(bu_allocation[name])
+        new_cu_assigned = len(cu_allocation[name])
+        if existing_df is not None:
+            prior_const = existing_df.loc[existing_df["Constituency Name"] == name]
+            bu_assigned = new_bu_assigned + int(prior_const["BU Unit ID"].notna().sum())
+            cu_assigned = new_cu_assigned + int(prior_const["CU Unit ID"].notna().sum())
+        else:
+            bu_assigned, cu_assigned = new_bu_assigned, new_cu_assigned
+        summary_row = {
+            "Constituency Name": name,
+            "RO/ARO's Office": ro_map[name],
             "No. of Polling Stations": ps_count,
-            "No. of BUs Assigned": int(bu_assigned),
-            "No. of CUs Assigned": int(cu_assigned),
-            "Assigned EVM vs PS (%)": assigned_pct,
-        })
-
+            "No. of BUs Assigned": bu_assigned,
+            "No. of CUs Assigned": cu_assigned,
+            "Assigned BU vs PS (%)": round(100 * bu_assigned / ps_count, 2),
+            "Assigned CU vs PS (%)": round(100 * cu_assigned / ps_count, 2),
+        }
+        if existing_df is not None:
+            summary_row["New BUs Assigned"] = new_bu_assigned
+            summary_row["New CUs Assigned"] = new_cu_assigned
+        summary_rows.append(summary_row)
     constituency_summary = pd.DataFrame(summary_rows)
-    animation_frames = _build_phase1_frames(bu_records, cu_records, constituencies, n_snaps=10)
+    animation_frames = _build_phase1_frames(new_result_df, n_snaps=10)
 
-    assigned_bu_ids = set(result_df["BU Unit ID"].dropna()) if not result_df.empty else set()
-    assigned_cu_ids = set(result_df["CU Unit ID"].dropna()) if not result_df.empty else set()
+    assigned_bu_ids = set(result_df["BU Unit ID"].dropna())
+    assigned_cu_ids = set(result_df["CU Unit ID"].dropna())
+    remaining_bu_df = bu_available.loc[~bu_available["Unit ID"].isin(assigned_bu_ids)].copy()
+    remaining_cu_df = cu_available.loc[~cu_available["Unit ID"].isin(assigned_cu_ids)].copy()
 
-    remaining_bu_df = bu_available[~bu_available["Unit ID"].isin(assigned_bu_ids)].copy()
-    remaining_cu_df = cu_available[~cu_available["Unit ID"].isin(assigned_cu_ids)].copy()
-
-    result_df = _drop_box_columns(result_df)
-    remaining_bu_df = _drop_box_columns(remaining_bu_df)
-    remaining_cu_df = _drop_box_columns(remaining_cu_df)
-
-    return result_df, constituency_summary, animation_frames, warnings, remaining_bu_df, remaining_cu_df
+    return (
+        _drop_box_columns(result_df), constituency_summary, animation_frames, warnings,
+        _drop_box_columns(remaining_bu_df), _drop_box_columns(remaining_cu_df),
+    )
 
 
-def _build_phase1_frames(bu_records, cu_records, constituencies, n_snaps=10):
-    """Return list of DataFrames showing progressive assignment for animation."""
-    frames = []
-    total = min(len(bu_records), len(cu_records))
-    step = max(1, total // n_snaps) if total else 1
-    n_const = len(constituencies)
-
-    for snap in range(1, n_snaps + 1):
-        count = min(snap * step, total)
-        rows = []
-        for i in range(count):
-            rows.append({
-                "BU Unit ID": bu_records[i]["Unit ID"],
-                "CU Unit ID": cu_records[i]["Unit ID"],
-                "Constituency": constituencies[i % n_const],
-            })
-        frames.append(pd.DataFrame(rows))
-
-    return frames
+def _build_phase1_frames(result_df, n_snaps=10):
+    """Preview real randomized constituency assignments, including unmatched units."""
+    if result_df.empty:
+        return []
+    preview = result_df[["BU Unit ID", "CU Unit ID", "Constituency Name"]].rename(
+        columns={"Constituency Name": "Constituency"}
+    )
+    n_frames = min(n_snaps, len(preview))
+    return [preview.head((len(preview) * i + n_frames - 1) // n_frames).copy()
+            for i in range(1, n_frames + 1)]
 
 
-def get_phase1_excel(result_df, remaining_bu_df=None, remaining_cu_df=None):
+def get_phase1_excel(result_df, remaining_bu_df=None, remaining_cu_df=None, summary_df=None):
     output = BytesIO()
 
     result_df = _drop_box_columns(result_df)
@@ -530,6 +581,8 @@ def get_phase1_excel(result_df, remaining_bu_df=None, remaining_cu_df=None):
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         result_df.to_excel(writer, index=False, sheet_name="Assigned EVMs")
+        if summary_df is not None:
+            summary_df.to_excel(writer, index=False, sheet_name="Constituency Summary")
 
         if remaining_bu_df is not None and not remaining_bu_df.empty:
             remaining_bu_df.to_excel(writer, index=False, sheet_name="Remaining BUs")
@@ -539,7 +592,7 @@ def get_phase1_excel(result_df, remaining_bu_df=None, remaining_cu_df=None):
 
     return output.getvalue()
 
-def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, randomization_date=""):
+def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, randomization_date="", summary_df=None):
     buf = BytesIO()
 
     deo_name = "District Election Officer"
@@ -560,6 +613,15 @@ def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, random
         randomization_date,
         deo_name=deo_name,
     ))
+
+    if summary_df is not None:
+        story.append(PageBreak())
+        story.extend(_df_to_pdf_table(
+            summary_df,
+            "Phase 1 - Constituency Summary",
+            randomization_date,
+            deo_name=deo_name,
+        ))
 
     if remaining_bu_df is not None:
         story.append(PageBreak())
@@ -587,8 +649,15 @@ def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, random
 # Phase 2
 # ---------------------------------------------------------------------------
 
-def run_phase2(phase1_file, ps_file, seed=None, selected_ro_offices=None, selected_constituencies=None):
-    """Run Phase 2 randomization with separate BU/CU reserved counts."""
+def run_phase2(
+    phase1_file, ps_file, seed=None, selected_ro_offices=None,
+    selected_constituencies=None, reserve_per_polling_station=False,
+):
+    """Assign EVMs to stations; optionally designate a reserved pair per station.
+
+    Default (option off) retains Phase 2's original random assignment and surplus
+    reservation. The option uses Phase 1 constituency stock, never new units.
+    """
     if seed is not None:
         random.seed(seed)
 
@@ -623,6 +692,31 @@ def run_phase2(phase1_file, ps_file, seed=None, selected_ro_offices=None, select
     has_cu_box = "CU Box No." in phase1_df.columns
 
     constituencies = phase1_df["Constituency Name"].dropna().unique().tolist()
+
+    if reserve_per_polling_station:
+        missing_constituencies = set(ps_df["Constituency Name"].dropna()) - set(constituencies)
+        if missing_constituencies:
+            raise ValueError(
+                "Phase 1 output is missing BU/CU allocations for polling-station "
+                f"constituencies: {', '.join(sorted(map(str, missing_constituencies)))}."
+            )
+        # Validate *all* selected constituencies before making any assignment,
+        # rather than silently generating an incomplete reserve allocation.
+        for name in constituencies:
+            const_units = phase1_df[phase1_df["Constituency Name"] == name]
+            const_stations = ps_df[ps_df["Constituency Name"] == name]
+            station_count = len(const_stations)
+            bu_count = int((const_units["BU Unit ID"].notna() &
+                            (const_units["BU Unit ID"].astype(str).str.strip() != "")).sum())
+            cu_count = int((const_units["CU Unit ID"].notna() &
+                            (const_units["CU Unit ID"].astype(str).str.strip() != "")).sum())
+            needed = 2 * station_count
+            if station_count == 0 or bu_count < needed or cu_count < needed:
+                raise ValueError(
+                    f"Constituency '{name}' needs at least {needed} BUs and {needed} CUs "
+                    f"for {station_count} polling station(s): one working pair and one "
+                    f"reserved pair per station. Found {bu_count} BUs and {cu_count} CUs."
+                )
 
     assigned_rows = []
     reserved_rows = []
@@ -706,7 +800,29 @@ def run_phase2(phase1_file, ps_file, seed=None, selected_ro_offices=None, select
             assigned_rows.append(row)
             assigned_sl += 1
 
-        for i in range(n_assign, n_bu):
+        # Optional designation: one extra randomly chosen *paired* reserve per PS.
+        # The normal polling-station assignment above remains untouched.
+        reserve_pair_count = n_ps if reserve_per_polling_station else 0
+        for i in range(reserve_pair_count):
+            reserve_bu = bu_records[n_assign + i]
+            reserve_cu = cu_records[n_assign + i]
+            row = {
+                "SlNo": reserved_sl,
+                "BU Unit ID": reserve_bu["BU Unit ID"],
+                "CU Unit ID": reserve_cu["CU Unit ID"],
+                "RO/ARO's Office": ro_office,
+                "Constituency Name": const_name,
+                "Polling Station No.": ps_list[i][0],
+                "Polling Station Name": f"RESERVED for {ps_list[i][1]}",
+            }
+            if has_bu_box:
+                row["BU Box No."] = reserve_bu.get("BU Box No.")
+            if has_cu_box:
+                row["CU Box No."] = reserve_cu.get("CU Box No.")
+            reserved_rows.append(row)
+            reserved_sl += 1
+
+        for i in range(n_assign + reserve_pair_count, n_bu):
             row = {
                 "SlNo": reserved_sl,
                 "BU Unit ID": bu_records[i]["BU Unit ID"],
@@ -723,7 +839,7 @@ def run_phase2(phase1_file, ps_file, seed=None, selected_ro_offices=None, select
             reserved_rows.append(row)
             reserved_sl += 1
 
-        for i in range(n_assign, n_cu):
+        for i in range(n_assign + reserve_pair_count, n_cu):
             row = {
                 "SlNo": reserved_sl,
                 "BU Unit ID": None,
