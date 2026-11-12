@@ -572,10 +572,6 @@ def main_app():
             )
             st.caption(
                 "The BU/CU input files above must contain the NEW units only. "
-                "The updated Phase 1 Excel output will combine old and new assignments "
-                "for use by Phase 2. On-screen results will display only the "
-                "new assignments; the PDF will show those first and the "
-                "complete list afterwards."
             )
 
         st.markdown("### EVM Allocation Mode")
