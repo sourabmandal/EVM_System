@@ -572,6 +572,26 @@ def _build_phase1_frames(result_df, n_snaps=10):
             for i in range(1, n_frames + 1)]
 
 
+def get_phase1_current_assignments(result_df, summary_df=None):
+    """Return just the newest Phase 1 rows from a cumulative allocation.
+
+    Phase 1 appends new rows after every old row and retains old SlNo values.
+    Per-constituency new rows equal max(new BU count, new CU count) because
+    the two unit types are assigned independently and may be unequal.
+    The usual (non-incremental) Phase 1 result is returned in full.
+    """
+    if summary_df is None or not {"New BUs Assigned", "New CUs Assigned"}.issubset(summary_df.columns):
+        return result_df.copy()
+    new_bu = pd.to_numeric(summary_df["New BUs Assigned"], errors="raise")
+    new_cu = pd.to_numeric(summary_df["New CUs Assigned"], errors="raise")
+    if new_bu.isna().any() or new_cu.isna().any() or (new_bu < 0).any() or (new_cu < 0).any():
+        raise ValueError("The summary contains invalid new-unit counts.")
+    n_rows = int(pd.concat([new_bu, new_cu], axis=1).max(axis=1).sum())
+    if n_rows > len(result_df):
+        raise ValueError("New-unit counts exceed the total Phase 1 output rows.")
+    return result_df.tail(n_rows).copy().reset_index(drop=True)
+
+
 def get_phase1_excel(result_df, remaining_bu_df=None, remaining_cu_df=None, summary_df=None):
     output = BytesIO()
 
@@ -592,9 +612,16 @@ def get_phase1_excel(result_df, remaining_bu_df=None, remaining_cu_df=None, summ
 
     return output.getvalue()
 
-def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, randomization_date="", summary_df=None):
-    buf = BytesIO()
+def get_phase1_pdf(
+    result_df, remaining_bu_df=None, remaining_cu_df=None, randomization_date="",
+    summary_df=None, current_result_df=None,
+):
+    """Phase 1 PDF: current additions, then cumulative assignments (if incremental).
 
+    Constituency summaries are intentionally excluded from PDF, even when a
+    caller supplies summary_df for compatibility with older calling code.
+    """
+    buf = BytesIO()
     deo_name = "District Election Officer"
 
     doc = SimpleDocTemplate(
@@ -607,23 +634,29 @@ def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, random
     )
 
     story = []
-    story.extend(_df_to_pdf_table(
-        result_df,
-        "Phase 1 - Assigned EVMs",
-        randomization_date,
-        deo_name=deo_name,
-    ))
-
-    if summary_df is not None:
+    if current_result_df is not None:
+        story.extend(_df_to_pdf_table(
+            current_result_df,
+            "Phase 1 - Current Randomization (Additional Units)",
+            randomization_date,
+            deo_name=deo_name,
+        ))
         story.append(PageBreak())
         story.extend(_df_to_pdf_table(
-            summary_df,
-            "Phase 1 - Constituency Summary",
+            result_df,
+            "Phase 1 - Comprehensive Assignment (Previous and Current)",
+            randomization_date,
+            deo_name=deo_name,
+        ))
+    else:
+        story.extend(_df_to_pdf_table(
+            result_df,
+            "Phase 1 - Assigned EVMs",
             randomization_date,
             deo_name=deo_name,
         ))
 
-    if remaining_bu_df is not None:
+    if remaining_bu_df is not None and not remaining_bu_df.empty:
         story.append(PageBreak())
         story.extend(_df_to_pdf_table(
             remaining_bu_df,
@@ -632,7 +665,7 @@ def get_phase1_pdf(result_df, remaining_bu_df=None, remaining_cu_df=None, random
             deo_name=deo_name,
         ))
 
-    if remaining_cu_df is not None:
+    if remaining_cu_df is not None and not remaining_cu_df.empty:
         story.append(PageBreak())
         story.extend(_df_to_pdf_table(
             remaining_cu_df,
