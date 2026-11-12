@@ -4,6 +4,7 @@ import streamlit as st
 import pandas as pd
 import sys
 import os
+import hashlib
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -430,6 +431,26 @@ def dataframe_to_excel_bytes(df: pd.DataFrame) -> bytes:
         df.to_excel(writer, index=False)
     return buf.getvalue()
 
+def get_suggested_constituency_allocations(ps_df, available_bu, available_cu):
+    """Generate editable, polling-station-proportional defaults for exact allocation."""
+    rows = (ps_df.groupby(["RO/ARO's Office", "Constituency Name"], sort=False)
+            .size().reset_index(name="Polling Stations"))
+    total_ps = int(rows["Polling Stations"].sum())
+
+    def distribute(units):
+        units = max(0, int(units))
+        exact = [units * int(ps) / total_ps for ps in rows["Polling Stations"]]
+        base = [int(value) for value in exact]
+        order = sorted(range(len(base)), key=lambda i: exact[i] - base[i], reverse=True)
+        for i in order[:units - sum(base)]:
+            base[i] += 1
+        return base
+
+    rows["Base BUs"] = distribute(available_bu)
+    rows["Base CUs"] = distribute(available_cu)
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # Main application
 # ---------------------------------------------------------------------------
@@ -533,45 +554,120 @@ def main_app():
                     key="p1_cu",
                 )
 
-        st.markdown("### EVM Allocation Mode")
-
-        use_all_available = st.checkbox(
-            "Use all available EVMs",
-            value=True,
-            help="If checked, all the available BUs and CUs will be randomized and assigned.",
+        incremental_phase1 = st.checkbox(
+            "These are additional units: append to an existing Phase 1 allocation",
+            value=False,
+            help=("Upload the earlier Phase 1 workbook and only the newly received BU/CU inventory. "
+                  "Earlier assignments remain unchanged; the downloaded result includes both."),
+            key="p1_incremental_mode",
         )
+        existing_phase1_file = None
+        if incremental_phase1:
+            existing_phase1_file = st.file_uploader(
+                "Existing Phase 1 Assigned EVMs workbook",
+                type=["xlsx", "xls"],
+                key="p1_existing_output",
+            )
+            st.caption(
+                "The BU/CU input files above must contain the NEW units only. "
+                "The updated Phase 1 Excel output will combine old and new assignments "
+                "for use by Phase 2."
+            )
 
-        evm_percentage = None
+        st.markdown("### EVM Allocation Mode")
+        allocation_method = st.radio(
+            "Choose how BUs and CUs will be distributed",
+            ["Automatic - polling-station ratio", "Exact - constituency-wise quantities"],
+            horizontal=True,
+            key="p1_allocation_method",
+        )
+        use_all_available = True
+        bu_percentage = None
+        cu_percentage = None
+        constituency_allocations = None
+        capacity = None
 
         if ps_file and bu_file and cu_file:
             try:
                 capacity = get_phase1_capacity(ps_file, bu_file, cu_file)
-                
-                max_percentage_int = int(capacity["max_percentage"])
+                total_ps = capacity["total_polling_stations"]
                 st.info(
-                    f"Maximum assignable percentage: {max_percentage_int}%  |  "
-                    f"Total Polling Stations: {capacity['total_polling_stations']}  |  "
-                    f"Available BUs: {capacity['available_bus']}  |  "
+                    f"Total Polling Stations: {total_ps}  |  "
+                    f"Available BUs: {capacity['available_bus']} "
+                    f"(maximum {capacity['max_bu_percentage']:g}% of stations)  |  "
                     f"Available CUs: {capacity['available_cus']} "
+                    f"(maximum {capacity['max_cu_percentage']:g}% of stations)"
                 )
-
-                if not use_all_available:
-                    max_percentage_int = int(capacity["max_percentage"])
-                
-                    evm_percentage = st.number_input(
-                        "Enter EVM percentage to assign",
-                        min_value=1,
-                        max_value=max_percentage_int,
-                        value=max_percentage_int,
-                        step=1,
+                if allocation_method == "Exact - constituency-wise quantities":
+                    ps_preview = pd.read_excel(ps_file)
+                    default_allocation = get_suggested_constituency_allocations(
+                        ps_preview, capacity["available_bus"], capacity["available_cus"]
                     )
+                    input_signature = hashlib.sha256(
+                        ps_file.getvalue() + bu_file.getvalue() + cu_file.getvalue()
+                    ).hexdigest()[:16]
+                    st.markdown("**Enter the BU and CU quantities to allocate to each constituency:**")
+                    constituency_allocations = st.data_editor(
+                        default_allocation,
+                        key=f"p1_exact_allocation_{input_signature}",
+                        hide_index=True,
+                        num_rows="fixed",
+                        use_container_width=True,
+                        disabled=["RO/ARO's Office", "Constituency Name", "Polling Stations"],
+                        column_config={
+                            "Base BUs": st.column_config.NumberColumn("BUs to Allocate", min_value=0, step=1, required=True),
+                            "Base CUs": st.column_config.NumberColumn("CUs to Allocate", min_value=0, step=1, required=True),
+                        },
+                    )
+                    preview = constituency_allocations.copy()
+                    planned_bu = pd.to_numeric(preview["Base BUs"], errors="coerce").sum()
+                    planned_cu = pd.to_numeric(preview["Base CUs"], errors="coerce").sum()
+                    st.caption("These are the final Phase 1 quantities; Phase 2 handles optional reservations from this allocation.")
+                    if planned_bu > capacity["available_bus"] or planned_cu > capacity["available_cus"]:
+                        st.error(
+                            f"Insufficient stock: the plan needs {planned_bu:g} BUs and {planned_cu:g} CUs, "
+                            f"but only {capacity['available_bus']} BUs and {capacity['available_cus']} CUs "
+                            "are available. Reduce the base counts or provide more units."
+                        )
+                    else:
+                        st.success(
+                            f"Planned: {planned_bu:g} BUs and {planned_cu:g} CUs. "
+                            f"Remaining: {capacity['available_bus'] - planned_bu:g} BUs, "
+                            f"{capacity['available_cus'] - planned_cu:g} CUs."
+                        )
+                else:
+                    use_all_available = st.checkbox(
+                        "Use all available BUs and CUs", value=True,
+                        help="Assign all available units in Phase 1; optional reserves are selected in Phase 2.",
+                    )
+                    if not use_all_available:
+                        max_bu_pct = int(capacity["available_bus"] / total_ps * 100)
+                        max_cu_pct = int(capacity["available_cus"] / total_ps * 100)
+                        if max_bu_pct < 1 or max_cu_pct < 1:
+                            st.error("Not enough units for positive BU and CU assignment percentages.")
+                        else:
+                            col_bu, col_cu = st.columns(2)
+                            with col_bu:
+                                bu_percentage = st.number_input(
+                                    "BU percentage to assign",
+                                    min_value=1, max_value=max_bu_pct,
+                                    value=max_bu_pct, step=1, key="p1_bu_percentage",
+                                )
+                            with col_cu:
+                                cu_percentage = st.number_input(
+                                    "CU percentage to assign",
+                                    min_value=1, max_value=max_cu_pct,
+                                    value=max_cu_pct, step=1, key="p1_cu_percentage",
+                                )
 
             except Exception as e:
-                st.warning(f"Could not calculate maximum percentage yet: {e}")
+                st.warning(f"Could not prepare Phase 1 allocation: {e}")
 
         if st.button("Run Phase 1 Randomization", use_container_width=True):
             if not ps_file or not bu_file or not cu_file:
                 st.error("Please upload all three files before running.")
+            elif incremental_phase1 and not existing_phase1_file:
+                st.error("Upload the existing Phase 1 output to append additional units.")
             else:
                 with st.spinner("Randomizing EVMs across constituencies..."):
                     try:
@@ -582,8 +678,12 @@ def main_app():
                             cu_file,
                             seed=seed,
                             use_all_available=use_all_available,
-                            evm_percentage=evm_percentage,
+                            bu_percentage=bu_percentage,
+                            cu_percentage=cu_percentage,
+                            constituency_allocations=constituency_allocations,
+                            existing_phase1_file=existing_phase1_file,
                         )
+                        st.session_state["phase1_incremental_used"] = incremental_phase1
                         st.session_state["phase1_result"] = result_df
                         st.session_state["phase1_summary"] = summary
                         st.session_state["phase1_frames"] = frames
@@ -605,8 +705,7 @@ def main_app():
                 display_phase1_animation(frames)
 
             st.markdown('<div class="section-title">Constituency-wise EVM Summary</div>', unsafe_allow_html=True)
-            summary = st.session_state["phase1_summary"]
-            summary["Assigned EVM vs PS (%)"] = summary["Assigned EVM vs PS (%)"].round(0).astype(int)
+            summary = st.session_state["phase1_summary"].copy()
             result_df = st.session_state["phase1_result"]
 
             total_bus_assigned = summary["No. of BUs Assigned"].sum()
@@ -614,10 +713,19 @@ def main_app():
             total_const = len(summary)
             total_ps_count = summary["No. of Polling Stations"].sum()
             
-            remaining_bus = max(0, capacity["available_bus"] - total_bus_assigned) if ps_file and bu_file and cu_file else 0
-            remaining_cus = max(0, capacity["available_cus"] - total_cus_assigned) if ps_file and bu_file and cu_file else 0
+            remaining_bu_records = st.session_state.get("phase1_remaining_bu")
+            remaining_cu_records = st.session_state.get("phase1_remaining_cu")
+            remaining_bus = len(remaining_bu_records) if remaining_bu_records is not None else 0
+            remaining_cus = len(remaining_cu_records) if remaining_cu_records is not None else 0
             
             st.dataframe(summary, use_container_width=True, hide_index=True)
+            if total_ps_count:
+                st.caption(
+                    f"Overall assigned BU vs polling stations: "
+                    f"{100 * total_bus_assigned / total_ps_count:.2f}%  |  "
+                    f"Assigned CU vs polling stations: "
+                    f"{100 * total_cus_assigned / total_ps_count:.2f}%"
+                )
 
             total_bus = summary["No. of BUs Assigned"].sum()
             total_cus = summary["No. of CUs Assigned"].sum()
@@ -669,6 +777,8 @@ def main_app():
                 )
 
             st.markdown('<div class="section-title">Full Randomization Output</div>', unsafe_allow_html=True)
+            if st.session_state.get("phase1_incremental_used"):
+                st.caption("Combined output: previous unit-to-constituency assignments are retained; new units are appended.")
             result_df = st.session_state["phase1_result"]
             st.dataframe(result_df, use_container_width=True, hide_index=True)
 
@@ -676,6 +786,8 @@ def main_app():
             remaining_cu_df = st.session_state["phase1_remaining_cu"]
             
             st.markdown('<div class="section-title">Remaining BUs and CUs</div>', unsafe_allow_html=True)
+            if st.session_state.get("phase1_incremental_used"):
+                st.caption("Remaining units from the newly uploaded stock only (not prior allocations).")
             col1, col2 = st.columns(2)
             
             with col1:
@@ -707,12 +819,14 @@ def main_app():
                     result_df,
                     st.session_state.get("phase1_remaining_bu"),
                     st.session_state.get("phase1_remaining_cu"),
+                    summary_df=st.session_state.get("phase1_summary"),
                 )
                 pdf_bytes = get_phase1_pdf(
                     result_df,
                     st.session_state.get("phase1_remaining_bu"),
                     st.session_state.get("phase1_remaining_cu"),
                     randomization_date=st.session_state.get("phase1_randomization_date", ""),
+                    summary_df=st.session_state.get("phase1_summary"),
                 )
 
                 d1, d2 = st.columns(2)
@@ -761,6 +875,22 @@ def main_app():
                     type=["xlsx", "xls"],
                     key="p2_ps",
                 )
+
+        reserve_per_polling_station = st.checkbox(
+            "Reserve one additional BU and CU pair per polling station (constituency-wise)",
+            value=False,
+            key="p2_extra_reserve",
+            help=("When selected, Phase 2 randomly sets aside one complete BU/CU pair for "
+                  "each polling station within its own constituency. It uses units already "
+                  "assigned in Phase 1; at least two BUs and two CUs per polling station "
+                  "must be available in that constituency."),
+        )
+        if reserve_per_polling_station:
+            st.caption(
+                "Each polling station gets one working BU/CU pair plus one designated "
+                "reserved BU/CU pair. Any remaining surplus also stays reserved. "
+                "No extra units are added to Phase 1."
+            )
 
         selected_ro_offices = None
         selected_constituencies = None
@@ -835,7 +965,9 @@ def main_app():
                             seed=seed,
                             selected_ro_offices=selected_ro_offices,
                             selected_constituencies=selected_constituencies,
+                            reserve_per_polling_station=reserve_per_polling_station,
                         )
+                        st.session_state["phase2_reserve_mode_used"] = reserve_per_polling_station
                         st.session_state["phase2_assigned"] = assigned_df
                         st.session_state["phase2_reserved"] = reserved_df
                         st.session_state["phase2_summary"] = reserved_summary
@@ -857,6 +989,12 @@ def main_app():
             reserved_df = st.session_state["phase2_reserved"]
             reserved_summary = st.session_state["phase2_summary"]
 
+            if st.session_state.get("phase2_reserve_mode_used"):
+                st.caption(
+                    "Polling-station reserve enabled: one designated BU/CU reserve pair "
+                    "per station is shown in the Reserved EVMs list, identified by its "
+                    "polling station number and a RESERVED label."
+                )
             st.markdown('<div class="section-title">Reserved EVMs - Constituency Wise</div>', unsafe_allow_html=True)
             if not reserved_summary.empty:
                 st.dataframe(reserved_summary, use_container_width=True, hide_index=True)
